@@ -110,7 +110,7 @@
 }
 
 .conversation-checkbox {
-    margin-top: 4px;
+    display: none;
 }
 
 .conversation-icon {
@@ -149,11 +149,11 @@
 
 /* 多选模式样式 */
 .multi-select-mode .conversation-checkbox {
-    display: block;
+    display: inline-block !important;
 }
 
 .multi-select-mode .copy-selected {
-    display: inline-block;
+    display: inline-block !important;
 }
 
 /* 响应式布局 */
@@ -166,4 +166,18 @@
     .sidebar-resizer {
         display: none;
     }
+} 
+
+/* 通义千问特定样式 */
+.containerWrap--lFLVsVCe {
+    position: relative;
+    z-index: 1;
+    max-width: var(--conversation-max-width, 800px);
+    margin: 0 auto;
+    transition: max-width 0.3s ease;
+}
+
+/* 确保我们的侧边栏在通义千问页面上正确显示 */
+.ai-chat-enhancer-sidebar {
+    z-index: 1000;
 } 

@@ -32,7 +32,7 @@ function getMainContainer(type) {
     if (type === 'chatgpt') {
         return document.querySelector('.flex.flex-col.text-sm.md\\:pb-9');
     } else if (type === 'qianwen') {
-        return document.querySelector('.react-scroll-to-bottom--css-hdcsd-1n7m0yu');
+        return document.querySelector('.containerWrap--lFLVsVCe');
     }
     return null;
 }
@@ -47,12 +47,55 @@ function getConversations(type) {
     return [];
 }
 
+// 建议添加一个新的函数来提取对话内容
+function extractConversationContent(element, type) {
+    if (type === 'qianwen') {
+        if (element.classList.contains('questionItem--dS3Alcnv')) {
+            // 提取问题内容
+            return element.querySelector('.bubble--H3ZjjTnP')?.textContent || '';
+        } else if (element.classList.contains('answerItem--U4_Uv3iw')) {
+            // 提取回答内容
+            return element.querySelector('.tongyi-markdown')?.textContent || '';
+        }
+    }
+    return '';
+}
+
+// 检查页面是否已准备好
+function checkPageReady(type) {
+    if (type === 'qianwen') {
+        return new Promise((resolve) => {
+            const checkInterval = setInterval(() => {
+                const container = document.querySelector('.containerWrap--lFLVsVCe');
+                if (container) {
+                    clearInterval(checkInterval);
+                    resolve(true);
+                }
+            }, 500);
+            
+            // 设置超时
+            setTimeout(() => {
+                clearInterval(checkInterval);
+                resolve(false);
+            }, 10000);
+        });
+    }
+    return Promise.resolve(true);
+}
+
 // 初始化设置
 async function initializeSettings() {
     console.log('开始初始化设置');
     const pageType = getPageType();
     if (!pageType) {
         console.log('不支持的页面类型');
+        return;
+    }
+
+    // 添加页面准备检查
+    const isReady = await checkPageReady(pageType);
+    if (!isReady) {
+        console.log('页面加载超时');
         return;
     }
 
@@ -201,39 +244,23 @@ function adjustMainContent(type) {
 }
 
 // 调整对话宽度
-function adjustConversationWidth(type, level) {
-    console.log('调整对话宽度:', type, level);
-    settings[type].conversationWidth = level;
-    saveSettings(type);
+function adjustConversationWidth(type, position) {
+    let width;
+    const maxPosition = window.innerWidth - 100; // 预留一些空间
+    const normalizedPosition = Math.max(0, Math.min(position, maxPosition));
+    const ratio = normalizedPosition / maxPosition;
 
-    const container = getMainContainer(type);
-    if (!container) {
-        console.log('未找到对话容器');
-        return;
-    }
-
-    let maxWidth;
-    switch (level) {
-        case 0: // 默认
-            maxWidth = type === 'chatgpt' ? '48rem' : '100%';
-            break;
-        case 1: // 较宽
-            maxWidth = type === 'chatgpt' ? '56rem' : '80%';
-            break;
-        case 2: // 宽
-            maxWidth = type === 'chatgpt' ? '64rem' : '60%';
-            break;
-    }
-
-    if (type === 'chatgpt') {
-        // 对于 ChatGPT，需要修改所有对话容器的宽度类
-        const conversations = document.querySelectorAll('.mx-auto.flex.flex-1.gap-4.text-base.md\\:gap-5.lg\\:gap-6');
-        conversations.forEach(conv => {
-            conv.style.maxWidth = maxWidth;
-        });
+    // 修改档位逻辑：最左为默认，中间较宽，最右最宽
+    if (ratio < 0.33) {
+        width = '800px'; // 默认宽度
+    } else if (ratio < 0.66) {
+        width = '1000px'; // 较宽
     } else {
-        container.style.maxWidth = maxWidth;
+        width = '1200px'; // 最宽
     }
+
+    document.documentElement.style.setProperty('--conversation-max-width', width);
+    saveSettings(type, { conversationWidth: width });
 }
 
 // 更新侧边栏内容
