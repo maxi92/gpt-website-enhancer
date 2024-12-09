@@ -463,3 +463,207 @@ observer.observe(document.body, {
 // 初始化
 console.log('content.js 加载完成');
 initializeSettings(); 
+
+// 通义千问网站特定的处理函数
+function handleTongyiPage() {
+    // 对话容器的选择器
+    const containerSelector = '.containerWrap--lFLVsVCe';
+    const contentWrapperSelector = '.contentWrapper--nKrTYKHP';
+    
+    // 监听宽度变化消息
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        if (request.action === 'adjustWidth') {
+            const containers = document.querySelectorAll(containerSelector);
+            const contentWrappers = document.querySelectorAll(contentWrapperSelector);
+            
+            containers.forEach(container => {
+                container.style.maxWidth = request.width + 'px';
+                container.style.transition = 'max-width 0.3s ease';
+            });
+            
+            contentWrappers.forEach(wrapper => {
+                wrapper.style.maxWidth = 'none';
+            });
+            
+            sendResponse({success: true});
+        }
+    });
+}
+
+// 检测是否是通义千问网站
+if (window.location.hostname === 'qianwen.aliyun.com') {
+    handleTongyiPage();
+} 
+
+function createNavigationItem(index, content, isUser) {
+    const item = document.createElement('div');
+    item.className = `conversation-item ${isUser ? 'user' : 'assistant'}`;
+    
+    // 添加复选框
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'conversation-checkbox';
+    item.appendChild(checkbox);
+    
+    // 添加序号
+    const icon = document.createElement('span');
+    icon.className = 'conversation-icon';
+    icon.textContent = `对话${index}`;
+    item.appendChild(icon);
+    
+    // 添加内容预览
+    const text = document.createElement('span');
+    text.className = 'conversation-text';
+    text.textContent = content;
+    item.appendChild(text);
+    
+    return item;
+}
+
+function toggleMultiSelect(sidebar) {
+    const isMultiSelect = sidebar.classList.toggle('multi-select-mode');
+    const copySelectedButton = sidebar.querySelector('.copy-selected');
+    const checkboxes = sidebar.querySelectorAll('.conversation-checkbox');
+    
+    if (isMultiSelect) {
+        copySelectedButton.style.display = 'inline-block';
+        checkboxes.forEach(checkbox => {
+            checkbox.style.display = 'inline-block';
+        });
+    } else {
+        copySelectedButton.style.display = 'none';
+        checkboxes.forEach(checkbox => {
+            checkbox.style.display = 'none';
+            checkbox.checked = false;
+        });
+    }
+}
+
+function createSidebar() {
+    const sidebar = document.createElement('div');
+    sidebar.className = 'ai-chat-enhancer-sidebar';
+    
+    // 创建头部
+    const header = document.createElement('div');
+    header.className = 'sidebar-header';
+    
+    const title = document.createElement('span');
+    title.textContent = '对话导航';
+    
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'sidebar-header-buttons';
+    
+    const multiSelectButton = document.createElement('button');
+    multiSelectButton.className = 'sidebar-button';
+    multiSelectButton.textContent = '多选';
+    multiSelectButton.onclick = () => toggleMultiSelect(sidebar);
+    
+    const copySelectedButton = document.createElement('button');
+    copySelectedButton.className = 'sidebar-button copy-selected';
+    copySelectedButton.textContent = '复制选中';
+    copySelectedButton.style.display = 'none';
+    copySelectedButton.onclick = () => handleCopySelected(sidebar);
+    
+    buttonContainer.appendChild(multiSelectButton);
+    buttonContainer.appendChild(copySelectedButton);
+    
+    header.appendChild(title);
+    header.appendChild(buttonContainer);
+    
+    // 创建内容区域
+    const content = document.createElement('div');
+    content.className = 'sidebar-content';
+    
+    // 创建拖动条
+    const resizer = document.createElement('div');
+    resizer.className = 'sidebar-resizer';
+    
+    sidebar.appendChild(header);
+    sidebar.appendChild(content);
+    sidebar.appendChild(resizer);
+    
+    return sidebar;
+}
+
+function handleCopySelected(sidebar) {
+    const selectedItems = sidebar.querySelectorAll('.conversation-checkbox:checked');
+    if (selectedItems.length === 0) return;
+    
+    let markdownContent = '';
+    selectedItems.forEach(checkbox => {
+        const item = checkbox.closest('.conversation-item');
+        const icon = item.querySelector('.conversation-icon').textContent;
+        const text = item.querySelector('.conversation-text').textContent;
+        const isUser = item.classList.contains('user');
+        
+        markdownContent += `### ${icon}\n${isUser ? '**用户**' : '**助手**'}：${text}\n\n`;
+    });
+    
+    navigator.clipboard.writeText(markdownContent).then(() => {
+        alert('已复制选中的对话内容！');
+    });
+}
+
+// 通义千问网站的对话内容获取函数
+function getTongyiConversations() {
+    const conversations = [];
+    let index = 1;
+    
+    // 获取所有问题
+    const questions = document.querySelectorAll('.questionItem--dS3Alcnv .bubble--H3ZjjTnP');
+    // 获取所有回答
+    const answers = document.querySelectorAll('.answerItem--U4_Uv3iw .tongyi-markdown');
+    
+    // 将问题和回答配对
+    for (let i = 0; i < questions.length; i++) {
+        if (questions[i] && answers[i]) {
+            conversations.push({
+                question: questions[i].textContent.trim(),
+                answer: answers[i].textContent.trim(),
+                index: index++
+            });
+        }
+    }
+    
+    return conversations;
+}
+
+// 更新导航栏内容
+function updateNavigationContent(sidebar) {
+    const content = sidebar.querySelector('.sidebar-content');
+    content.innerHTML = '';
+    
+    // 根据网站选择不同的获取对话方法
+    let conversations;
+    if (window.location.hostname === 'qianwen.aliyun.com') {
+        conversations = getTongyiConversations();
+    } else if (window.location.hostname === 'chat.openai.com') {
+        conversations = getChatGPTConversations();
+    }
+    
+    if (!conversations || conversations.length === 0) return;
+    
+    conversations.forEach(conv => {
+        // 添加问题
+        const questionItem = createNavigationItem(conv.index, conv.question, true);
+        content.appendChild(questionItem);
+        
+        // 添加回答
+        const answerItem = createNavigationItem(conv.index, conv.answer, false);
+        content.appendChild(answerItem);
+    });
+}
+
+// 初始化导航栏
+function initializeNavigation() {
+    const sidebar = createSidebar();
+    document.body.appendChild(sidebar);
+    
+    // 初始更新内容
+    updateNavigationContent(sidebar);
+    
+    // 定期更新内容（每5秒检查一次）
+    setInterval(() => {
+        updateNavigationContent(sidebar);
+    }, 5000);
+} 
