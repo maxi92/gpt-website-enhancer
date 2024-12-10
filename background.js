@@ -8,7 +8,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     // 检查URL是否匹配支持的网站
     const supportedUrls = [
         'https://chat.openai.com/*',
-        'https://tongyi.aliyun.com/*'
+        'https://qianwen.aliyun.com/*'
     ];
 
     console.log('标签页更新:', tab.url);
@@ -48,4 +48,4 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     }).catch(error => {
         console.error('设置图标状态失败:', error);
     });
-}); 
+});

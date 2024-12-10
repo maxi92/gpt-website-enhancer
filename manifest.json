@@ -8,8 +8,9 @@
     "storage"
   ],
   "host_permissions": [
-    "https://chatgpt.com/c/*",
-    "https://tongyi.aliyun.com/qianwen/*"
+    "https://chat.openai.com/*",
+    "https://chatgpt.com/*",
+    "https://qianwen.aliyun.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -22,8 +23,9 @@
   "content_scripts": [
     {
       "matches": [
+        "https://chat.openai.com/*",
         "https://chatgpt.com/c/*",
-        "https://tongyi.aliyun.com/qianwen/*"
+        "https://qianwen.aliyun.com/*"
       ],
       "js": ["content.js"],
       "css": ["styles.css"],
@@ -39,4 +41,4 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   }
-} 
+}
