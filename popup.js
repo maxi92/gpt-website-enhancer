@@ -5,43 +5,79 @@ document.addEventListener('DOMContentLoaded', function() {
     const exportMarkdownButton = document.getElementById('exportMarkdown');
     const markdownOutput = document.getElementById('markdownOutput');
     const copyMarkdownButton = document.getElementById('copyMarkdown');
+    const tocRadios = document.querySelectorAll('input[name="tocOption"]');
 
-    if (!toggleSidebarButton || !exportMarkdownButton || !markdownOutput || !copyMarkdownButton) {
+    if (!toggleSidebarButton || !exportMarkdownButton || !markdownOutput || !copyMarkdownButton || !tocRadios.length) {
         console.error('某些必需的DOM元素未找到');
         return;
     }
 
+    let currentMarkdown = ''; // 存储原始的 Markdown 内容
+
     // 切换侧边栏显示
-    toggleSidebarButton.addEventListener('click', function() {
+    toggleSidebarButton.addEventListener('click', async function() {
         console.log('点击切换侧边栏按钮');
-        chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-            if (tabs[0]) {
-                chrome.tabs.sendMessage(tabs[0].id, {action: 'toggleSidebar'}, function(response) {
-                    console.log('侧边栏切换响应:', response);
-                });
+        try {
+            const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+            if (tab) {
+                await chrome.tabs.sendMessage(tab.id, {action: 'toggleSidebar'});
             } else {
                 console.error('未找到活动标签页');
             }
-        });
+        } catch (error) {
+            console.error('切换侧边栏失败:', error);
+        }
     });
 
     // 导出为Markdown
-    exportMarkdownButton.addEventListener('click', function() {
+    exportMarkdownButton.addEventListener('click', async function() {
         console.log('点击导出Markdown按钮');
-        chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-            if (tabs[0]) {
-                chrome.tabs.sendMessage(tabs[0].id, {action: 'getMarkdown'}, function(response) {
-                    if (response && response.markdown) {
-                        console.log('收到Markdown内容');
-                        markdownOutput.value = response.markdown;
-                        markdownOutput.style.display = 'block';
-                        copyMarkdownButton.style.display = 'block';
-                    } else {
-                        console.error('未收到Markdown内容');
-                    }
+        try {
+            const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+            if (tab) {
+                const generateToc = document.querySelector('input[name="tocOption"]:checked').value === 'true';
+                const response = await chrome.tabs.sendMessage(tab.id, {
+                    action: 'getMarkdown',
+                    generateToc: generateToc
                 });
+                if (response && response.markdown) {
+                    console.log('收到Markdown内容');
+                    currentMarkdown = response.markdown; // 保存原始内容
+                    markdownOutput.value = currentMarkdown;
+                    markdownOutput.style.display = 'block';
+                    copyMarkdownButton.style.display = 'block';
+                } else {
+                    console.error('未收到Markdown内容');
+                }
             } else {
                 console.error('未找到活动标签页');
+            }
+        } catch (error) {
+            console.error('获取Markdown失败:', error);
+        }
+    });
+
+    // 监听单选按钮的变化
+    tocRadios.forEach(radio => {
+        radio.addEventListener('change', async function() {
+            if (!currentMarkdown) return; // 如果还没有内容，不做处理
+            
+            try {
+                const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+                if (tab) {
+                    const generateToc = this.value === 'true';
+                    const response = await chrome.tabs.sendMessage(tab.id, {
+                        action: 'getMarkdown',
+                        generateToc: generateToc
+                    });
+                    if (response && response.markdown) {
+                        console.log('更新Markdown内容');
+                        currentMarkdown = response.markdown;
+                        markdownOutput.value = currentMarkdown;
+                    }
+                }
+            } catch (error) {
+                console.error('更新Markdown失败:', error);
             }
         });
     });

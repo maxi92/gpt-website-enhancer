@@ -51,6 +51,21 @@
         .copy-button:hover {
             background-color: #1976D2;
         }
+        .option-row {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            gap: 16px;
+        }
+        .radio-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .radio-group label {
+            cursor: pointer;
+            user-select: none;
+        }
     </style>
 </head>
 <body>
@@ -59,6 +74,16 @@
     <button class="button" id="toggleSidebar">切换导航栏显示</button>
     <button class="button" id="exportMarkdown">转换为Markdown格式</button>
     <textarea id="markdownOutput" readonly></textarea>
+    <div class="option-row">
+        <div class="radio-group">
+            <input type="radio" id="withoutToc" name="tocOption" value="false" checked>
+            <label for="withoutToc">不生成目录</label>
+        </div>
+        <div class="radio-group">
+            <input type="radio" id="withToc" name="tocOption" value="true">
+            <label for="withToc">生成目录</label>
+        </div>
+    </div>
     <button class="button copy-button" id="copyMarkdown">复制Markdown内容</button>
     <script src="popup.js"></script>
 </body>
