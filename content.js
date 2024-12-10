@@ -16,6 +16,9 @@ let settings = {
 let isUpdating = false;
 let updateTimeout = null;
 
+// 存储初始默认宽度
+let initialDefaultWidth = null;
+
 // 检测当前页面类型
 function getPageType() {
     const url = window.location.href;
@@ -243,23 +246,81 @@ function adjustMainContent(type) {
     }
 }
 
-// 调整对话宽度
-function adjustConversationWidth(type, position) {
-    let width;
-    const maxPosition = window.innerWidth - 100; // 预留一些空间
-    const normalizedPosition = Math.max(0, Math.min(position, maxPosition));
-    const ratio = normalizedPosition / maxPosition;
-
-    // 修改档位逻辑：最左为默认，中间较宽，最右最宽
-    if (ratio < 0.33) {
-        width = '800px'; // 默认宽度
-    } else if (ratio < 0.66) {
-        width = '1000px'; // 较宽
-    } else {
-        width = '1200px'; // 最宽
+// 获取初始默认宽度
+function getInitialDefaultWidth(type) {
+    if (initialDefaultWidth !== null) {
+        return initialDefaultWidth;
     }
 
-    document.documentElement.style.setProperty('--conversation-max-width', width);
+    const container = getMainContainer(type);
+    if (!container) {
+        console.log('未找到对话容器');
+        return null;
+    }
+
+    // 获取当前容器的计算样式
+    const computedStyle = window.getComputedStyle(container);
+    let defaultWidth = parseInt(computedStyle.maxWidth);
+    
+    // 如果maxWidth是'none'或其他非数值，则使用实际宽度
+    if (isNaN(defaultWidth)) {
+        defaultWidth = container.offsetWidth;
+    }
+    
+    initialDefaultWidth = defaultWidth;
+    console.log('初始默认宽度:', initialDefaultWidth);
+    return initialDefaultWidth;
+}
+
+// 调整对话宽度
+function adjustConversationWidth(type, position) {
+    console.log('调整对话宽度:', position, type);
+    let width;
+
+    // 获取初始默认宽度
+    const defaultWidth = getInitialDefaultWidth(type);
+    console.log('初始默认宽度:', defaultWidth);
+    if (!defaultWidth) {
+        return;
+    }
+
+    // 根据档位直接设置宽度倍数
+    switch (position) {
+        case 0:
+            width = defaultWidth; // 默认宽度
+            break;
+        case 1:
+            width = Math.round(defaultWidth * 1.2); // 较宽 (1.2倍)
+            break;
+        case 2:
+            width = Math.round(defaultWidth * 1.5); // 最宽 (1.5倍)
+            break;
+        default:
+            width = defaultWidth; // 默认情况
+    }
+
+    console.log('调整对话宽度:', width, type);
+
+    if (type === 'chatgpt') {
+        // 对于 ChatGPT，直接修改对话容器的宽度
+        const conversations = document.querySelectorAll('.text-base.md\\:max-w-2xl.lg\\:max-w-xl.xl\\:max-w-3xl.md\\:flex-col.flex.flex-1.gap-3');
+        console.log('对话容器:', conversations);
+        conversations.forEach(conv => {
+            conv.style.maxWidth = `${width}px`;
+        });
+
+        // 同时修改主容器的宽度
+        const mainContainer = document.querySelector('.flex.flex-col.text-sm.dark\\:bg-gray-800');
+        console.log('主容器:', mainContainer);
+        if (mainContainer) {
+            mainContainer.style.maxWidth = `${width}px`;
+        }
+    } else {
+        // 对于其他页面（如通义千问），使用 CSS 变量
+        document.documentElement.style.setProperty('--conversation-max-width', `${width}px`);
+    }
+
+    console.log('调整之后宽度为', width);
     saveSettings(type, { conversationWidth: width });
 }
 
@@ -421,6 +482,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         case 'adjustWidth':
             if (request.type === pageType) {
+                console.log('调整对话宽度:', request.widthLevel, pageType);
                 adjustConversationWidth(pageType, request.widthLevel);
                 sendResponse({ success: true });
             }
@@ -611,7 +673,7 @@ function getTongyiConversations() {
     
     // 获取所有问题
     const questions = document.querySelectorAll('.questionItem--dS3Alcnv .bubble--H3ZjjTnP');
-    // 获取所有回答
+    // 获所有回答
     const answers = document.querySelectorAll('.answerItem--U4_Uv3iw .tongyi-markdown');
     
     // 将问题和回答配对
@@ -667,3 +729,43 @@ function initializeNavigation() {
         updateNavigationContent(sidebar);
     }, 5000);
 } 
+
+function adjustConversationWidth() {
+    console.log('调整对话宽度');
+    // 获取主容器 - 使用正确的选择器
+    const mainContainer = document.querySelector('.flex-1.overflow-hidden.\\@container\\/thread');
+    
+    // 获取对话容器 - 使用正确的选择器
+    const conversations = document.querySelector('.flex.flex-col.text-sm.md\\:pb-9');
+    
+    console.log('主容器:', mainContainer);
+    console.log('对话容器:', conversations);
+    
+    if (!mainContainer || !conversations) {
+        console.log('Container elements not found');
+        return;
+    }
+
+    // 获取窗口宽度
+    const windowWidth = window.innerWidth;
+    
+    // 设置宽度
+    if (windowWidth >= 1280) { // xl
+        conversations.style.maxWidth = '48rem';
+    } else if (windowWidth >= 1024) { // lg
+        conversations.style.maxWidth = '40rem';
+    } else if (windowWidth >= 768) { // md
+        conversations.style.maxWidth = '48rem';
+    } else {
+        conversations.style.maxWidth = '100%';
+    }
+    
+    // 确保容器居中
+    conversations.style.margin = '0 auto';
+}
+
+// 添加窗口调整监听器
+window.addEventListener('resize', adjustConversationWidth);
+
+// 初始调用
+adjustConversationWidth(); 
