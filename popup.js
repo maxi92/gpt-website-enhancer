@@ -1,14 +1,14 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('弹出窗口加载完成');
     
-    const toggleSidebarButton = document.getElementById('toggleSidebar');
+    const sidebarToggle = document.getElementById('sidebarToggle');
     const exportMarkdownButton = document.getElementById('exportMarkdown');
     const markdownOutput = document.getElementById('markdownOutput');
     const copyMarkdownButton = document.getElementById('copyMarkdown');
     const tocToggle = document.getElementById('tocToggle');
     const optionRow = document.querySelector('.option-row');
 
-    if (!toggleSidebarButton || !exportMarkdownButton || !markdownOutput || 
+    if (!sidebarToggle || !exportMarkdownButton || !markdownOutput || 
         !copyMarkdownButton || !tocToggle || !optionRow) {
         console.error('某些必需的DOM元素未找到');
         return;
@@ -16,18 +16,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let currentMarkdown = ''; // 存储原始的 Markdown 内容
 
+    // 初始化侧边栏状态
+    chrome.tabs.query({active: true, currentWindow: true}, async function(tabs) {
+        if (tabs[0]) {
+            try {
+                const response = await chrome.tabs.sendMessage(tabs[0].id, {action: 'getSidebarState'});
+                sidebarToggle.checked = response.isVisible;
+            } catch (error) {
+                console.error('获取侧边栏状态失败:', error);
+            }
+        }
+    });
+
     // 切换侧边栏显示
-    toggleSidebarButton.addEventListener('click', async function() {
-        console.log('点击切换侧边栏按钮');
+    sidebarToggle.addEventListener('change', async function() {
+        console.log('切换侧边栏状态:', this.checked);
         try {
             const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
             if (tab) {
-                await chrome.tabs.sendMessage(tab.id, {action: 'toggleSidebar'});
+                await chrome.tabs.sendMessage(tab.id, {
+                    action: 'toggleSidebar',
+                    visible: this.checked
+                });
             } else {
                 console.error('未找到活动标签页');
             }
         } catch (error) {
             console.error('切换侧边栏失败:', error);
+            this.checked = !this.checked; // 如果失败，恢复状态
         }
     });
 
@@ -47,7 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     markdownOutput.value = currentMarkdown;
                     markdownOutput.style.display = 'block';
                     copyMarkdownButton.style.display = 'block';
-                    optionRow.style.display = 'flex';  // 显示目录开关
+                    document.querySelector('.option-row:nth-child(2)').style.display = 'flex';  // 显示目录开关
                 } else {
                     console.error('未收到Markdown内容');
                 }

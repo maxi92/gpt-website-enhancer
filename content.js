@@ -328,17 +328,23 @@ function init() {
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             console.log('收到消息:', request.action);
             
+            if (request.action === 'getSidebarState') {
+                const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
+                sendResponse({
+                    isVisible: sidebar ? sidebar.style.display !== 'none' : false
+                });
+            }
+            
             if (request.action === 'toggleSidebar') {
                 const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
                 if (sidebar) {
-                    sidebar.style.display = sidebar.style.display === 'none' ? 'flex' : 'none';
+                    sidebar.style.display = request.visible ? 'flex' : 'none';
                     console.log('切换侧边栏显示:', sidebar.style.display);
                     sendResponse({success: true});
                 }
             }
             
             if (request.action === 'getMarkdown') {
-                // 立即执行同步操作
                 try {
                     const markdown = convertToMarkdown(request.generateToc);
                     console.log('生成Markdown完成');
