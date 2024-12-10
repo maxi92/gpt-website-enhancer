@@ -6,15 +6,95 @@ document.addEventListener('DOMContentLoaded', function() {
     const markdownOutput = document.getElementById('markdownOutput');
     const copyMarkdownButton = document.getElementById('copyMarkdown');
     const tocToggle = document.getElementById('tocToggle');
+    const widthSlider = document.getElementById('widthSlider');
     const optionRow = document.querySelector('.option-row');
 
     if (!sidebarToggle || !exportMarkdownButton || !markdownOutput || 
-        !copyMarkdownButton || !tocToggle || !optionRow) {
+        !copyMarkdownButton || !tocToggle || !widthSlider || !optionRow) {
         console.error('某些必需的DOM元素未找到');
         return;
     }
 
     let currentMarkdown = ''; // 存储原始的 Markdown 内容
+
+    // 初始化设置
+    async function initializeSettings() {
+        try {
+            const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+            if (tab) {
+                const response = await chrome.tabs.sendMessage(tab.id, {action: 'getSettings'});
+                if (response) {
+                    console.log('获取到设置:', response);
+                    sidebarToggle.checked = response.sidebarVisible;
+                    widthSlider.value = response.conversationWidth || 0;
+                }
+            }
+        } catch (error) {
+            console.error('初始化设置失败:', error);
+        }
+    }
+
+    // 监听侧边栏开关
+    sidebarToggle.addEventListener('change', async function() {
+        console.log('切换侧边栏状态:', this.checked);
+        try {
+            const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+            if (tab) {
+                await chrome.tabs.sendMessage(tab.id, {
+                    action: 'toggleSidebar',
+                    visible: this.checked
+                });
+            }
+        } catch (error) {
+            console.error('切换侧边栏失败:', error);
+            this.checked = !this.checked; // 如果失败，恢复状态
+        }
+    });
+
+    // 监听宽度调节
+    let widthAdjustTimeout = null;
+    widthSlider.addEventListener('input', async function() {
+        const level = parseInt(this.value);
+        console.log('调整对话宽度:', level);
+        
+        clearTimeout(widthAdjustTimeout);
+        widthAdjustTimeout = setTimeout(async () => {
+            try {
+                const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+                if (tab) {
+                    await chrome.tabs.sendMessage(tab.id, {
+                        action: 'adjustWidth',
+                        widthLevel: level
+                    });
+                }
+            } catch (error) {
+                console.error('调整宽度失败:', error);
+            }
+        }, 200);
+    });
+
+    // 初始化宽度设置
+    async function initializeWidthSetting() {
+        try {
+            const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+            if (tab) {
+                const response = await chrome.tabs.sendMessage(tab.id, {action: 'getWidthSetting'});
+                if (response && response.widthLevel !== undefined) {
+                    console.log('获取到保存的宽度设置:', response.widthLevel);
+                    widthSlider.value = response.widthLevel;
+                } else {
+                    console.log('使用默认宽度设置');
+                    widthSlider.value = 0;
+                }
+            }
+        } catch (error) {
+            console.error('初始化宽度设置失败:', error);
+            widthSlider.value = 0;
+        }
+    }
+
+    // 初始化设置
+    initializeSettings();
 
     // 初始化侧边栏状态
     chrome.tabs.query({active: true, currentWindow: true}, async function(tabs) {
@@ -25,25 +105,6 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (error) {
                 console.error('获取侧边栏状态失败:', error);
             }
-        }
-    });
-
-    // 切换侧边栏显示
-    sidebarToggle.addEventListener('change', async function() {
-        console.log('切换侧边栏状态:', this.checked);
-        try {
-            const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-            if (tab) {
-                await chrome.tabs.sendMessage(tab.id, {
-                    action: 'toggleSidebar',
-                    visible: this.checked
-                });
-            } else {
-                console.error('未找到活动标签页');
-            }
-        } catch (error) {
-            console.error('切换侧边栏失败:', error);
-            this.checked = !this.checked; // 如果失败，恢复状态
         }
     });
 

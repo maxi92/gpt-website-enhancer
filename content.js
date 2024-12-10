@@ -8,8 +8,8 @@ function createSidebar() {
         <div class="sidebar-header">
             对话导航
             <div class="sidebar-header-buttons">
-                <button class="sidebar-button" id="multiSelectToggle">多选</button>
                 <button class="sidebar-button copy-selected" id="copySelected" disabled>复制选中对话</button>
+                <button class="sidebar-button" id="multiSelectToggle">多选</button>
             </div>
         </div>
         <div class="sidebar-content"></div>
@@ -22,14 +22,35 @@ function createSidebar() {
     let startX;
     let startWidth;
 
+    // 添加防止文字选中的样式
+    function addNoSelectStyle() {
+        const style = document.createElement('style');
+        style.id = 'no-select-style';
+        style.textContent = 'body.resizing * { user-select: none !important; }';
+        document.head.appendChild(style);
+    }
+
+    function removeNoSelectStyle() {
+        const style = document.getElementById('no-select-style');
+        if (style) {
+            style.remove();
+        }
+    }
+
     resizer.addEventListener('mousedown', (e) => {
         isResizing = true;
         startX = e.pageX;
         startWidth = parseInt(getComputedStyle(sidebar).width, 10);
         
+        // 添加防止选中的样式
+        document.body.classList.add('resizing');
+        addNoSelectStyle();
+
         document.addEventListener('mousemove', handleMouseMove);
         document.addEventListener('mouseup', () => {
             isResizing = false;
+            document.body.classList.remove('resizing');
+            removeNoSelectStyle();
             document.removeEventListener('mousemove', handleMouseMove);
         }, { once: true });
     });
@@ -38,7 +59,7 @@ function createSidebar() {
         if (!isResizing) return;
         
         const width = startWidth - (e.pageX - startX);
-        if (width >= 200 && width <= 600) {  // 限制最小和最大宽度
+        if (width >= 240 && width <= 700) {  // 使用与 CSS 中相同的最小和最大宽度
             sidebar.style.width = `${width}px`;
         }
     }
@@ -277,6 +298,192 @@ function convertToMarkdown(generateToc = false) {
     return markdown.trim();
 }
 
+// 存储当前宽度设置
+let currentWidthLevel = 0;
+
+// 定义宽度设置
+const WIDTH_SETTINGS = {
+    0: { // 默认
+        md: '3xl',
+        lg: '[40rem]',
+        xl: '[48rem]'
+    },
+    1: { // 较宽
+        md: '4xl',
+        lg: '[48rem]',
+        xl: '[56rem]'
+    },
+    2: { // 宽
+        md: '5xl',
+        lg: '[56rem]',
+        xl: '[64rem]'
+    }
+};
+
+// 调整对话宽度
+function adjustConversationWidth(level) {
+    console.log('调整宽度到级别:', level);
+    
+    const setting = WIDTH_SETTINGS[level];
+    if (!setting) {
+        console.error('无效的宽度级别:', level);
+        return;
+    }
+
+    // 查找所有对话容器
+    const conversations = document.querySelectorAll('.mx-auto.flex.flex-1.gap-4.text-base');
+    if (conversations.length === 0) {
+        console.warn('未找到对话容器');
+        return;
+    }
+
+    conversations.forEach(conv => {
+        // 移除所有现有的宽度类
+        conv.classList.forEach(cls => {
+            if (cls.startsWith('md:max-w-') || cls.startsWith('lg:max-w-') || cls.startsWith('xl:max-w-')) {
+                conv.classList.remove(cls);
+            }
+        });
+
+        // 添加新的宽度类
+        conv.classList.add(`md:max-w-${setting.md}`);
+        conv.classList.add(`lg:max-w-${setting.lg}`);
+        conv.classList.add(`xl:max-w-${setting.xl}`);
+        
+        console.log('已更新对话容器宽度类:', conv.classList.toString());
+    });
+
+    // 更新状态并保存
+    currentWidthLevel = level;
+    chrome.storage.local.set({ conversationWidth: level }, () => {
+        console.log('宽度设置已保存:', level);
+    });
+}
+
+// 创建宽度调整的 MutationObserver
+function createWidthAdjustmentObserver() {
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach(mutation => {
+            if (mutation.type === 'childList' && 
+                mutation.target.classList.contains('mx-auto') &&
+                mutation.target.classList.contains('flex') &&
+                mutation.target.classList.contains('flex-1')) {
+                // 如果检测到对话容器的变化，重新应用当前宽度设置
+                adjustConversationWidth(currentWidthLevel);
+            }
+        });
+    });
+
+    // 观察整个聊天容器
+    const chatContainer = document.querySelector('.flex.flex-col.text-sm');
+    if (chatContainer) {
+        observer.observe(chatContainer, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class']
+        });
+        console.log('宽度调整观察器已启动');
+    }
+
+    return observer;
+}
+
+// 存储设置
+function saveSettings(settings) {
+    chrome.storage.sync.set(settings, () => {
+        console.log('设置已保存:', settings);
+    });
+}
+
+// 加载设置
+function loadSettings() {
+    return new Promise((resolve) => {
+        chrome.storage.sync.get(['sidebarVisible', 'conversationWidth'], (result) => {
+            console.log('加载设置:', result);
+            resolve({
+                sidebarVisible: result.sidebarVisible !== undefined ? result.sidebarVisible : true,
+                conversationWidth: result.conversationWidth || 0
+            });
+        });
+    });
+}
+
+// 应用设置
+async function applySettings() {
+    const settings = await loadSettings();
+    console.log('应用设置:', settings);
+
+    // 应用侧边栏显示状态
+    const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
+    if (sidebar) {
+        sidebar.style.display = settings.sidebarVisible ? 'flex' : 'none';
+    }
+
+    // 应用对话宽度
+    if (settings.conversationWidth !== undefined) {
+        adjustConversationWidth(settings.conversationWidth);
+    }
+}
+
+// 监听来自popup的消息
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    console.log('收到消息:', request.action);
+    
+    if (request.action === 'getSettings') {
+        loadSettings().then(settings => {
+            sendResponse(settings);
+        });
+        return true;
+    }
+    
+    if (request.action === 'toggleSidebar') {
+        const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
+        if (sidebar) {
+            const isVisible = request.visible;
+            sidebar.style.display = isVisible ? 'flex' : 'none';
+            saveSettings({ sidebarVisible: isVisible });
+            sendResponse({ success: true });
+        }
+    }
+    
+    if (request.action === 'adjustWidth') {
+        adjustConversationWidth(request.widthLevel);
+        saveSettings({ conversationWidth: request.widthLevel });
+        sendResponse({ success: true });
+    }
+});
+
+// 在页面加载完成后应用设置
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applySettings);
+} else {
+    applySettings();
+}
+
+// 监听页面变化以重新应用设置
+const observer = new MutationObserver((mutations) => {
+    mutations.forEach(mutation => {
+        if (mutation.type === 'childList' && 
+            mutation.target.classList.contains('mx-auto') &&
+            mutation.target.classList.contains('flex') &&
+            mutation.target.classList.contains('flex-1')) {
+            applySettings();
+        }
+    });
+});
+
+// 观察整个聊天容器
+const chatContainer = document.querySelector('.flex.flex-col.text-sm');
+if (chatContainer) {
+    observer.observe(chatContainer, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class']
+    });
+}
+
 // 初始化插件
 function init() {
     console.log('开始初始化插件');
@@ -323,38 +530,6 @@ function init() {
         
         // 初始更新侧边栏
         updateSidebar();
-        
-        // 监听来自popup的消息
-        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-            console.log('收到消息:', request.action);
-            
-            if (request.action === 'getSidebarState') {
-                const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
-                sendResponse({
-                    isVisible: sidebar ? sidebar.style.display !== 'none' : false
-                });
-            }
-            
-            if (request.action === 'toggleSidebar') {
-                const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
-                if (sidebar) {
-                    sidebar.style.display = request.visible ? 'flex' : 'none';
-                    console.log('切换侧边栏显示:', sidebar.style.display);
-                    sendResponse({success: true});
-                }
-            }
-            
-            if (request.action === 'getMarkdown') {
-                try {
-                    const markdown = convertToMarkdown(request.generateToc);
-                    console.log('生成Markdown完成');
-                    sendResponse({success: true, markdown: markdown});
-                } catch (error) {
-                    console.error('生成Markdown失败:', error);
-                    sendResponse({success: false, error: error.message});
-                }
-            }
-        });
         
         console.log('插件初始化完成');
     } catch (error) {

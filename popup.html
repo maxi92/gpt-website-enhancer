@@ -107,6 +107,61 @@
         .copy-button:hover {
             background-color: #1976D2;
         }
+        .width-control {
+            margin-top: 8px;
+        }
+        .width-slider-container {
+            width: 100%;
+        }
+        .width-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #666;
+        }
+        .width-slider {
+            position: relative;
+            padding-bottom: 24px;
+        }
+        .width-slider input[type="range"] {
+            width: 100%;
+            height: 4px;
+            -webkit-appearance: none;
+            background: #ddd;
+            border-radius: 2px;
+            outline: none;
+        }
+        .width-slider input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #2196F3;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background .2s;
+        }
+        .width-slider input[type="range"]::-webkit-slider-thumb:hover {
+            background: #1976D2;
+        }
+        .width-marks {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 8px;
+        }
+        .width-marks span {
+            font-size: 12px;
+            color: #666;
+            transform: translateX(-50%);
+        }
+        .width-marks span:first-child {
+            transform: translateX(0);
+        }
+        .width-marks span:last-child {
+            transform: translateX(-100%);
+        }
     </style>
 </head>
 <body>
@@ -127,6 +182,19 @@
                 <span class="slider"></span>
             </label>
             <span class="switch-label">生成目录</span>
+        </div>
+        <div class="option-row width-control">
+            <div class="width-slider-container">
+                <span class="width-label">对话宽度：</span>
+                <div class="width-slider">
+                    <input type="range" id="widthSlider" min="0" max="2" step="1" value="0">
+                    <div class="width-marks">
+                        <span>默认</span>
+                        <span>较宽</span>
+                        <span>宽</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
