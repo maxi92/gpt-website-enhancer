@@ -207,15 +207,18 @@ function init() {
             }
             
             if (request.action === 'getMarkdown') {
-                try {
-                    const markdown = convertToMarkdown(request.generateToc);
-                    console.log('生成Markdown完成');
-                    sendResponse({success: true, markdown: markdown});
-                } catch (error) {
-                    console.error('生成Markdown失败:', error);
-                    sendResponse({success: false, error: error.message});
-                }
-                return false;
+                // 立即发送响应，避免消息通道关闭
+                setTimeout(() => {
+                    try {
+                        const markdown = convertToMarkdown(request.generateToc);
+                        console.log('生成Markdown完成');
+                        sendResponse({success: true, markdown: markdown});
+                    } catch (error) {
+                        console.error('生成Markdown失败:', error);
+                        sendResponse({success: false, error: error.message});
+                    }
+                }, 0);
+                return true; // 表示我们会异步发送响应
             }
         });
         

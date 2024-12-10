@@ -5,9 +5,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const exportMarkdownButton = document.getElementById('exportMarkdown');
     const markdownOutput = document.getElementById('markdownOutput');
     const copyMarkdownButton = document.getElementById('copyMarkdown');
-    const tocRadios = document.querySelectorAll('input[name="tocOption"]');
+    const tocToggle = document.getElementById('tocToggle');
+    const optionRow = document.querySelector('.option-row');
 
-    if (!toggleSidebarButton || !exportMarkdownButton || !markdownOutput || !copyMarkdownButton || !tocRadios.length) {
+    if (!toggleSidebarButton || !exportMarkdownButton || !markdownOutput || 
+        !copyMarkdownButton || !tocToggle || !optionRow) {
         console.error('某些必需的DOM元素未找到');
         return;
     }
@@ -35,17 +37,17 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
             if (tab) {
-                const generateToc = document.querySelector('input[name="tocOption"]:checked').value === 'true';
                 const response = await chrome.tabs.sendMessage(tab.id, {
                     action: 'getMarkdown',
-                    generateToc: generateToc
+                    generateToc: tocToggle.checked
                 });
                 if (response && response.markdown) {
                     console.log('收到Markdown内容');
-                    currentMarkdown = response.markdown; // 保存原始内容
+                    currentMarkdown = response.markdown;
                     markdownOutput.value = currentMarkdown;
                     markdownOutput.style.display = 'block';
                     copyMarkdownButton.style.display = 'block';
+                    optionRow.style.display = 'flex';  // 显示目录开关
                 } else {
                     console.error('未收到Markdown内容');
                 }
@@ -57,29 +59,26 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // 监听单选按钮的变化
-    tocRadios.forEach(radio => {
-        radio.addEventListener('change', async function() {
-            if (!currentMarkdown) return; // 如果还没有内容，不做处理
-            
-            try {
-                const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-                if (tab) {
-                    const generateToc = this.value === 'true';
-                    const response = await chrome.tabs.sendMessage(tab.id, {
-                        action: 'getMarkdown',
-                        generateToc: generateToc
-                    });
-                    if (response && response.markdown) {
-                        console.log('更新Markdown内容');
-                        currentMarkdown = response.markdown;
-                        markdownOutput.value = currentMarkdown;
-                    }
+    // 监听Toggle Switch的变化
+    tocToggle.addEventListener('change', async function() {
+        if (!currentMarkdown) return; // 如果还没有内容，不做处理
+        
+        try {
+            const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+            if (tab) {
+                const response = await chrome.tabs.sendMessage(tab.id, {
+                    action: 'getMarkdown',
+                    generateToc: this.checked
+                });
+                if (response && response.markdown) {
+                    console.log('更新Markdown内容');
+                    currentMarkdown = response.markdown;
+                    markdownOutput.value = currentMarkdown;
                 }
-            } catch (error) {
-                console.error('更新Markdown失败:', error);
             }
-        });
+        } catch (error) {
+            console.error('更新Markdown失败:', error);
+        }
     });
 
     // 复制Markdown内容
