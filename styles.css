@@ -2,7 +2,9 @@
     position: fixed;
     top: 0;
     right: 0;
-    width: 250px;
+    width: 280px;
+    min-width: 200px;
+    max-width: 600px;
     height: 100vh;
     background-color: #ffffff;
     box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
@@ -10,32 +12,169 @@
     display: flex;
     flex-direction: column;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    border-left: 1px solid #e0e0e0;
+    overflow: hidden;
 }
 
-.sidebar-header {
-    padding: 15px;
-    background-color: #f5f5f5;
-    border-bottom: 1px solid #e0e0e0;
-    font-weight: bold;
-    font-size: 16px;
+.sidebar-resizer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background-color: transparent;
+    cursor: ew-resize;
+    z-index: 1001;
 }
 
+.sidebar-resizer:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* 确保内容区域不会影响拖动 */
 .sidebar-content {
     flex: 1;
     overflow-y: auto;
-    padding: 10px;
+    overflow-x: hidden;
+    padding: 12px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
-.sidebar-item {
-    padding: 8px 12px;
-    margin: 4px 0;
-    cursor: pointer;
+/* 响应式布局 */
+@media (max-width: 768px) {
+    #ai-chat-enhancer-sidebar {
+        width: 100%;
+        max-width: none;
+    }
+    
+    .sidebar-resizer {
+        display: none;
+    }
+}
+
+.sidebar-header {
+    padding: 16px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+    font-weight: 600;
+    font-size: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+}
+
+.sidebar-header-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.sidebar-button {
+    padding: 6px 12px;
+    border: none;
     border-radius: 4px;
+    background-color: #2196F3;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
     transition: background-color 0.2s;
 }
 
-.sidebar-item:hover {
-    background-color: #f0f0f0;
+.sidebar-button:hover {
+    background-color: #1976D2;
+}
+
+.sidebar-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.sidebar-button.copy-selected {
+    display: none;
+    background-color: #4CAF50;
+}
+
+.sidebar-button.copy-selected:hover {
+    background-color: #45a049;
+}
+
+.conversation-group {
+    margin-bottom: 16px;
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.conversation-group:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.conversation-header {
+    padding: 8px 12px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+    font-weight: 500;
+    font-size: 14px;
+    color: #666;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.conversation-checkbox {
+    visibility: hidden;
+    margin-right: 8px;
+    cursor: pointer;
+    width: 0;
+    transition: all 0.3s;
+}
+
+.conversation-number {
+    color: #2196F3;
+    font-weight: 600;
+    min-width: 24px;
+}
+
+.conversation-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.conversation-item:hover {
+    background-color: #f5f5f5;
+}
+
+.conversation-item.user {
+    color: #2196F3;
+}
+
+.conversation-item.assistant {
+    color: #4CAF50;
+    padding-left: 24px;
+}
+
+.conversation-icon {
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.conversation-text {
+    flex: 1;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    font-size: 14px;
+    line-height: 1.4;
+    word-break: break-word;
 }
 
 /* 滚动条样式 */
@@ -54,4 +193,15 @@
 
 .sidebar-content::-webkit-scrollbar-thumb:hover {
     background: #555;
+}
+
+/* 多选模式样式 */
+.multi-select-mode .conversation-checkbox {
+    visibility: visible;
+    width: 16px;
+    margin-right: 8px;
+}
+
+.multi-select-mode .copy-selected {
+    display: inline-block;
 }
