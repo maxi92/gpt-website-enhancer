@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const markdownOutput = document.getElementById('markdownOutput');
     const copyMarkdownButton = document.getElementById('copyMarkdown');
     const tocToggle = document.getElementById('tocToggle');
+    const tocContainer = document.getElementById('tocContainer');
     const widthSlider = document.getElementById('widthSlider');
     const optionRow = document.querySelector('.option-row');
 
@@ -13,7 +14,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentState = {
         sidebarVisible: true,
         conversationWidth: 0,
-        isAdjustingWidth: false
+        isAdjustingWidth: false,
+        currentMarkdown: '' // 存储当前的Markdown内容
     };
 
     // 显示状态反馈
@@ -31,7 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化元素状态
     function initializeElements() {
         if (!sidebarToggle || !exportMarkdownButton || !markdownOutput || 
-            !copyMarkdownButton || !tocToggle || !widthSlider || !optionRow) {
+            !copyMarkdownButton || !tocToggle || !tocContainer || !widthSlider || !optionRow) {
             throw new Error('必需的DOM元素未找到');
         }
 
@@ -41,53 +43,52 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // 异步操作的通用错误处理
-    async function handleAsyncOperation(operation, errorMessage) {
+    // 异步获取Markdown内容
+    async function getMarkdownContent(generateToc = false) {
+        const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+        if (!tab) throw new Error('未找到活动标签页');
+
+        const response = await chrome.tabs.sendMessage(tab.id, {
+            action: 'getMarkdown',
+            generateToc
+        });
+
+        if (!response?.markdown) throw new Error('未收到Markdown内容');
+        return response.markdown;
+    }
+
+    // 更新Markdown显示
+    async function updateMarkdownDisplay(generateToc = false) {
         try {
-            return await operation();
+            const markdown = await getMarkdownContent(generateToc);
+            currentState.currentMarkdown = markdown;
+            markdownOutput.value = markdown;
+            showFeedback(exportMarkdownButton, '转换成功');
         } catch (error) {
-            console.error(errorMessage, error);
-            throw error;
+            console.error('获取Markdown失败:', error);
+            showFeedback(exportMarkdownButton, '转换失败', true);
         }
     }
 
-    // 初始化设置
-    async function initializeSettings() {
+    // 导出Markdown功能
+    exportMarkdownButton.addEventListener('click', async function() {
         try {
-            const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-            if (!tab) throw new Error('未找到活动标签页');
-
-            const response = await chrome.tabs.sendMessage(tab.id, {action: 'getSettings'});
-            if (!response) throw new Error('未收到设置响应');
-
-            currentState = {
-                ...currentState,
-                sidebarVisible: response.sidebarVisible,
-                conversationWidth: response.conversationWidth || 0
-            };
-
-            sidebarToggle.checked = currentState.sidebarVisible;
-            widthSlider.value = currentState.conversationWidth;
-            
-            console.log('设置初始化完成:', currentState);
+            await updateMarkdownDisplay(tocToggle.checked);
+            markdownOutput.style.display = 'block';
+            copyMarkdownButton.style.display = 'block';
+            tocContainer.style.display = 'flex';
         } catch (error) {
-            console.error('初始化设置失败:', error);
-            showFeedback(exportMarkdownButton, '初始化失败', true);
+            console.error('导出Markdown失败:', error);
+            showFeedback(this, '转换失败', true);
         }
-    }
+    });
 
-    // 防抖函数
-    function debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    }
+    // 监听目录开关
+    tocToggle.addEventListener('change', async function() {
+        if (markdownOutput.style.display === 'block') {
+            await updateMarkdownDisplay(this.checked);
+        }
+    });
 
     // 监听侧边栏开关
     sidebarToggle.addEventListener('change', async function() {
@@ -138,31 +139,6 @@ document.addEventListener('DOMContentLoaded', function() {
         debouncedWidthAdjust(level);
     });
 
-    // 导出Markdown功能
-    exportMarkdownButton.addEventListener('click', async function() {
-        try {
-            const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-            if (!tab) throw new Error('未找到活动标签页');
-
-            const response = await chrome.tabs.sendMessage(tab.id, {
-                action: 'getMarkdown',
-                generateToc: tocToggle.checked
-            });
-
-            if (!response?.markdown) throw new Error('未收到Markdown内容');
-
-            markdownOutput.value = response.markdown;
-            markdownOutput.style.display = 'block';
-            copyMarkdownButton.style.display = 'block';
-            document.querySelector('.option-row:nth-child(2)').style.display = 'flex';
-
-            showFeedback(this, '导出成功');
-        } catch (error) {
-            console.error('导出Markdown失败:', error);
-            showFeedback(this, '导出失败', true);
-        }
-    });
-
     // 复制Markdown内容
     copyMarkdownButton.addEventListener('click', function() {
         try {
@@ -175,10 +151,33 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // 防抖函数
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
     // 初始化
     try {
         initializeElements();
-        initializeSettings();
+        // 初始化设置
+        chrome.storage.sync.get(['sidebarVisible', 'conversationWidth'], (result) => {
+            if (result.sidebarVisible !== undefined) {
+                sidebarToggle.checked = result.sidebarVisible;
+                currentState.sidebarVisible = result.sidebarVisible;
+            }
+            if (result.conversationWidth !== undefined) {
+                widthSlider.value = result.conversationWidth;
+                currentState.conversationWidth = result.conversationWidth;
+            }
+        });
     } catch (error) {
         console.error('初始化失败:', error);
         showFeedback(exportMarkdownButton, '初始化失败', true);

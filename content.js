@@ -210,7 +210,7 @@ function updateSidebar() {
 function convertToMarkdown(generateToc = false) {
     console.log('开始转换Markdown, 是否生成目录:', generateToc);
     let markdown = '';
-    const conversations = document.querySelectorAll('[data-testid^="conversation-turn-"]');
+    const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
     console.log(`找到 ${conversations.length} 条对话`);
     
     // 如果需要生成目录，先收集所有问题
@@ -247,7 +247,7 @@ function convertToMarkdown(generateToc = false) {
         
         if (isUser) {
             questionCount++;
-            const content = conv.querySelector('.whitespace-pre-wrap')?.textContent || '';
+            const content = conv.querySelector('.whitespace-pre-wrap')?.textContent?.trim() || '';
             // 添加带有锚点的标题
             markdown += generateToc ? 
                 `\n### 问题 ${questionCount}\n\n${content}\n` :
@@ -289,7 +289,7 @@ function convertToMarkdown(generateToc = false) {
                 });
                 
                 markdown += `\n### ChatGPT\n\n${content}`;
-                console.log(`处理AI���息 ${index + 1}`);
+                console.log(`处理AI消息 ${index + 1}`);
             }
         }
     });
@@ -501,6 +501,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         saveSettings({ conversationWidth: request.widthLevel });
         sendResponse({ success: true });
     }
+
+    if (request.action === 'getMarkdown') {
+        try {
+            const markdown = convertToMarkdown(request.generateToc);
+            sendResponse({ markdown });
+        } catch (error) {
+            console.error('转换Markdown失败:', error);
+            sendResponse({ error: error.message });
+        }
+        return true;
+    }
 });
 
 // 在页面加载完成后应用设置
@@ -543,7 +554,7 @@ function init() {
         // 创建观察器以监听页面变化
         let updateTimeout = null;
         const observer = new MutationObserver((mutations) => {
-            // 检查是否是我们关心的��化
+            // 检查是否是我们关心的变化
             const shouldUpdate = mutations.some(mutation => {
                 // 忽略对侧边栏的修改
                 const target = mutation.target.nodeType === Node.ELEMENT_NODE 
