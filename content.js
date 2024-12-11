@@ -289,7 +289,7 @@ function convertToMarkdown(generateToc = false) {
                 });
                 
                 markdown += `\n### ChatGPT\n\n${content}`;
-                console.log(`处理AI消息 ${index + 1}`);
+                console.log(`处理AI���息 ${index + 1}`);
             }
         }
     });
@@ -304,24 +304,55 @@ let currentWidthLevel = 0;
 // 定义宽度设置
 const WIDTH_SETTINGS = {
     0: { // 默认
-        md: '3xl',
-        lg: '[40rem]',
-        xl: '[48rem]'
+        classes: ['md:max-w-3xl', 'lg:max-w-[40rem]', 'xl:max-w-[48rem]']
     },
     1: { // 较宽
-        md: '4xl',
-        lg: '[48rem]',
-        xl: '[56rem]'
+        classes: ['md:max-w-4xl', 'lg:max-w-[48rem]', 'xl:max-w-[56rem]']
     },
     2: { // 宽
-        md: '5xl',
-        lg: '[56rem]',
-        xl: '[64rem]'
+        classes: ['md:max-w-5xl', 'lg:max-w-[56rem]', 'xl:max-w-[64rem]']
     }
 };
 
+// 定义选择器常量
+const SELECTORS = {
+    MAIN_CONTAINER: '.flex.flex-col.text-sm',
+    CONVERSATION_CONTAINER: '.mx-auto.flex.flex-1.gap-4.text-base',
+    MESSAGE_CONTAINER: '[data-testid^="conversation-turn-"]'
+};
+
+// 所有可能的宽度类前缀
+const WIDTH_CLASS_PREFIXES = [
+    'md:max-w-',
+    'lg:max-w-',
+    'xl:max-w-'
+];
+
+// 查找对话容器的函数
+function findConversationContainers() {
+    const containers = document.querySelectorAll(SELECTORS.CONVERSATION_CONTAINER);
+    console.log('找到对话容器数量:', containers.length);
+    if (containers.length > 0) {
+        console.log('对话容器当前类名:', containers[0].className);
+    }
+    return containers;
+}
+
+// 重试函数
+async function retry(fn, maxAttempts = 5, delay = 1000) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            return await fn();
+        } catch (error) {
+            if (attempt === maxAttempts) throw error;
+            console.log(`尝试第 ${attempt} 次失败，${delay}ms 后重试...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+}
+
 // 调整对话宽度
-function adjustConversationWidth(level) {
+async function adjustConversationWidth(level) {
     console.log('调整宽度到级别:', level);
     
     const setting = WIDTH_SETTINGS[level];
@@ -330,53 +361,71 @@ function adjustConversationWidth(level) {
         return;
     }
 
-    // 查找所有对话容器
-    const conversations = document.querySelectorAll('.mx-auto.flex.flex-1.gap-4.text-base');
-    if (conversations.length === 0) {
-        console.warn('未找到对话容器');
-        return;
-    }
-
-    conversations.forEach(conv => {
-        // 移除所有现有的宽度类
-        conv.classList.forEach(cls => {
-            if (cls.startsWith('md:max-w-') || cls.startsWith('lg:max-w-') || cls.startsWith('xl:max-w-')) {
-                conv.classList.remove(cls);
+    try {
+        await retry(async () => {
+            const containers = findConversationContainers();
+            if (containers.length === 0) {
+                throw new Error('未找到对话容器');
             }
-        });
 
-        // 添加新的宽度类
-        conv.classList.add(`md:max-w-${setting.md}`);
-        conv.classList.add(`lg:max-w-${setting.lg}`);
-        conv.classList.add(`xl:max-w-${setting.xl}`);
+            containers.forEach(container => {
+                // 移除所有现有的宽度类
+                WIDTH_CLASS_PREFIXES.forEach(prefix => {
+                    container.classList.forEach(cls => {
+                        if (cls.startsWith(prefix)) {
+                            console.log('移除宽度类:', cls);
+                            container.classList.remove(cls);
+                        }
+                    });
+                });
+
+                // 添加新的宽度类
+                setting.classes.forEach(cls => {
+                    console.log('添加宽度类:', cls);
+                    container.classList.add(cls);
+                });
+
+                console.log('更新后的类名:', container.className);
+            });
+
+            // 更新状态并保存
+            currentWidthLevel = level;
+            return chrome.storage.local.set({ conversationWidth: level });
+        }, 3, 500); // 减少重试次数和间隔时间
         
-        console.log('已更新对话容器宽度类:', conv.classList.toString());
-    });
-
-    // 更新状态并保存
-    currentWidthLevel = level;
-    chrome.storage.local.set({ conversationWidth: level }, () => {
-        console.log('宽度设置已保存:', level);
-    });
+        console.log('宽度调整成功完成');
+    } catch (error) {
+        console.error('宽度调整失败:', error);
+    }
 }
 
 // 创建宽度调整的 MutationObserver
 function createWidthAdjustmentObserver() {
     const observer = new MutationObserver((mutations) => {
-        mutations.forEach(mutation => {
-            if (mutation.type === 'childList' && 
-                mutation.target.classList.contains('mx-auto') &&
-                mutation.target.classList.contains('flex') &&
-                mutation.target.classList.contains('flex-1')) {
-                // 如果检测到对话容器的变化，重新应用当前宽度设置
-                adjustConversationWidth(currentWidthLevel);
-            }
+        const relevantMutation = mutations.some(mutation => {
+            if (mutation.type !== 'childList' && mutation.type !== 'attributes') return false;
+            
+            const target = mutation.target;
+            if (!target || !(target instanceof Element)) return false;
+
+            // 检查是否是对话容器或其父元素
+            return target.matches(SELECTORS.CONVERSATION_CONTAINER) ||
+                   target.closest(SELECTORS.CONVERSATION_CONTAINER);
         });
+
+        if (relevantMutation) {
+            console.log('检测到对话容器变化，重新应用宽度设置');
+            adjustConversationWidth(currentWidthLevel);
+        }
     });
 
     // 观察整个聊天容器
-    const chatContainer = document.querySelector('.flex.flex-col.text-sm');
-    if (chatContainer) {
+    retry(() => {
+        const chatContainer = document.querySelector(SELECTORS.MAIN_CONTAINER);
+        if (!chatContainer) {
+            throw new Error('未找到主容器');
+        }
+        
         observer.observe(chatContainer, {
             childList: true,
             subtree: true,
@@ -384,7 +433,7 @@ function createWidthAdjustmentObserver() {
             attributeFilter: ['class']
         });
         console.log('宽度调整观察器已启动');
-    }
+    });
 
     return observer;
 }
@@ -494,7 +543,7 @@ function init() {
         // 创建观察器以监听页面变化
         let updateTimeout = null;
         const observer = new MutationObserver((mutations) => {
-            // 检查是否是我们关心的变化
+            // 检查是否是我们关心的��化
             const shouldUpdate = mutations.some(mutation => {
                 // 忽略对侧边栏的修改
                 const target = mutation.target.nodeType === Node.ELEMENT_NODE 
