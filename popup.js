@@ -58,22 +58,26 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 更新Markdown显示
-    async function updateMarkdownDisplay(generateToc = false) {
+    async function updateMarkdownDisplay(generateToc = false, shouldShowFeedback = true) {
         try {
             const markdown = await getMarkdownContent(generateToc);
             currentState.currentMarkdown = markdown;
             markdownOutput.value = markdown;
-            showFeedback(exportMarkdownButton, '转换成功');
+            if (shouldShowFeedback) {
+                showFeedback(exportMarkdownButton, '转换成功');
+            }
         } catch (error) {
             console.error('获取Markdown失败:', error);
-            showFeedback(exportMarkdownButton, '转换失败', true);
+            if (shouldShowFeedback) {
+                showFeedback(exportMarkdownButton, '转换失败', true);
+            }
         }
     }
 
     // 导出Markdown功能
     exportMarkdownButton.addEventListener('click', async function() {
         try {
-            await updateMarkdownDisplay(tocToggle.checked);
+            await updateMarkdownDisplay(tocToggle.checked, true);
             markdownOutput.style.display = 'block';
             copyMarkdownButton.style.display = 'block';
             tocContainer.style.display = 'flex';
@@ -86,7 +90,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 监听目录开关
     tocToggle.addEventListener('change', async function() {
         if (markdownOutput.style.display === 'block') {
-            await updateMarkdownDisplay(this.checked);
+            await updateMarkdownDisplay(this.checked, false);
         }
     });
 
@@ -104,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             currentState.sidebarVisible = newState;
         } catch (error) {
-            console.error('切换侧边栏失败:', error);
+            console.error('���换侧边栏失败:', error);
             this.checked = currentState.sidebarVisible; // 恢复之前的状态
             showFeedback(exportMarkdownButton, '切换失败', true);
         }
@@ -167,7 +171,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化
     try {
         initializeElements();
-        // 初始化设置
+        // 初始设置
         chrome.storage.sync.get(['sidebarVisible', 'conversationWidth'], (result) => {
             if (result.sidebarVisible !== undefined) {
                 sidebarToggle.checked = result.sidebarVisible;

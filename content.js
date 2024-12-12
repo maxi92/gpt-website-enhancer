@@ -1,9 +1,194 @@
 // 创建侧边栏容器
 function createSidebar() {
     console.log('创建侧边栏');
+    
+    // 添加样式
+    const style = document.createElement('style');
+    style.textContent = `
+        #ai-chat-enhancer-sidebar {
+            position: fixed;
+            top: 0;
+            right: 0;
+            height: 100vh;
+            width: 380px;
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            transition: width 0.3s ease;
+            border-left: 1px solid #e8f0fe;
+        }
+
+        .sidebar-resizer {
+            position: absolute;
+            left: -5px;
+            top: 0;
+            width: 10px;
+            height: 100%;
+            cursor: col-resize;
+            background: transparent;
+            z-index: 1001;
+        }
+
+        .sidebar-resizer:hover {
+            background: rgba(26, 115, 232, 0.1);
+        }
+
+        .sidebar-header {
+            padding: 16px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e8f0fe;
+            font-size: 16px;
+            font-weight: 600;
+            color: #1a73e8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-header-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .sidebar-button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            background: #e8f0fe;
+            color: #1a73e8;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .sidebar-button:hover {
+            background: #d2e3fc;
+        }
+
+        .sidebar-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            background: #ffffff;
+        }
+
+        .conversation-group {
+            margin-bottom: 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e8f0fe;
+            transition: all 0.2s ease;
+        }
+
+        .conversation-group:hover {
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .conversation-header {
+            padding: 8px 12px;
+            background: #e8f0fe;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .conversation-checkbox {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .conversation-number {
+            font-size: 13px;
+            font-weight: 500;
+            color: #1a73e8;
+        }
+
+        .conversation-item {
+            padding: 12px;
+            border-bottom: 1px solid #e8f0fe;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .conversation-item:hover {
+            background: #f1f3f4;
+        }
+
+        .conversation-item:last-child {
+            border-bottom: none;
+        }
+
+        .conversation-icon {
+            display: inline-block;
+            width: 24px;
+            font-weight: 600;
+            color: #5f6368;
+        }
+
+        .conversation-text {
+            display: inline-block;
+            margin-left: 8px;
+            color: #3c4043;
+            font-size: 13px;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .conversation-item.user {
+            background: #f8f9fa;
+        }
+
+        .conversation-item.assistant {
+            background: #ffffff;
+        }
+
+        /* 滚动条样式 */
+        .sidebar-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .sidebar-content::-webkit-scrollbar-track {
+            background: #f1f3f4;
+        }
+
+        .sidebar-content::-webkit-scrollbar-thumb {
+            background: #dadce0;
+            border-radius: 4px;
+        }
+
+        .sidebar-content::-webkit-scrollbar-thumb:hover {
+            background: #bdc1c6;
+        }
+
+        /* 多选模式样式 */
+        .multi-select-mode .conversation-group {
+            border: 1px solid #1a73e8;
+        }
+
+        .multi-select-mode .conversation-checkbox {
+            display: block;
+        }
+
+        .conversation-checkbox {
+            display: none;
+        }
+    `;
+    
+    document.head.appendChild(style);
+
     const sidebar = document.createElement('div');
     sidebar.id = 'ai-chat-enhancer-sidebar';
-    sidebar.style.width = '380px'; // 设置更宽的默认宽度
+    sidebar.style.width = '380px';
     
     // 从存储中读取保存的宽度和显示状态
     chrome.storage.sync.get(['sidebarWidth', 'sidebarVisible'], (result) => {
@@ -11,10 +196,8 @@ function createSidebar() {
         if (result.sidebarWidth) {
             sidebar.style.width = result.sidebarWidth + 'px';
         }
-        // 根据保存的状态设置显示/隐藏，默认显示
         const isVisible = result.sidebarVisible !== false;
         sidebar.style.display = isVisible ? 'flex' : 'none';
-        // 立即同步保存当前状态
         chrome.storage.sync.set({ sidebarVisible: isVisible });
     });
 
@@ -29,6 +212,7 @@ function createSidebar() {
         </div>
         <div class="sidebar-content"></div>
     `;
+
     document.body.appendChild(sidebar);
 
     // 添加宽度调整功能
@@ -166,16 +350,23 @@ function updateCopyButtonState() {
     copyButton.disabled = selectedCount === 0;
 }
 
+// 截断文本，为问题和回答设置不同的长度限制
+function truncateText(text, maxLength = 100, isAnswer = false) {
+    const limit = isAnswer ? 60 : maxLength; // 回答的显示长度更短
+    if (text.length <= limit) return text;
+    return text.substring(0, limit) + '...';
+}
+
 // 更新侧边栏内容
 function updateSidebar() {
     console.log('更新侧边栏内容');
     const sidebarContent = document.querySelector('.sidebar-content');
     if (!sidebarContent) {
-        console.error('未找到边栏内容容器');
+        console.error('未找到侧边栏内容容器');
         return;
     }
 
-    const conversations = document.querySelectorAll('[data-testid^="conversation-turn-"]');
+    const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
     console.log(`找到 ${conversations.length} 条对话用于侧边栏`);
     
     // 将对话按组配对
@@ -195,22 +386,22 @@ function updateSidebar() {
         const assistantMessage = group[1]?.querySelector('[data-message-author-role="assistant"]');
         
         if (userMessage) {
-            const userContent = userMessage.querySelector('.whitespace-pre-wrap')?.textContent || '空内容';
-            const assistantContent = assistantMessage?.querySelector('.markdown')?.textContent || '等待回复...';
+            const userContent = userMessage.querySelector('.whitespace-pre-wrap')?.textContent?.trim() || '空内容';
+            const assistantContent = assistantMessage?.querySelector('.markdown')?.textContent?.trim() || '等待回复...';
             
             newHtml += `
                 <div class="conversation-group" data-index="${index}">
-                    <div class="conversation-header">
+                    <div class="conversation-header" role="button" tabindex="0">
                         <input type="checkbox" class="conversation-checkbox">
                         <span class="conversation-number">#${index + 1}</span>
                     </div>
                     <div class="conversation-item user">
                         <span class="conversation-icon">Q:</span>
-                        <span class="conversation-text">${userContent}</span>
+                        <span class="conversation-text">${truncateText(userContent, 100, false)}</span>
                     </div>
                     <div class="conversation-item assistant">
                         <span class="conversation-icon">A:</span>
-                        <span class="conversation-text">${assistantContent}</span>
+                        <span class="conversation-text">${truncateText(assistantContent, 100, true)}</span>
                     </div>
                 </div>
             `;
@@ -221,6 +412,32 @@ function updateSidebar() {
     if (sidebarContent.innerHTML !== newHtml) {
         sidebarContent.innerHTML = newHtml;
         console.log('侧边栏更新完成');
+        
+        // 添加点击事件处理
+        const headers = sidebarContent.querySelectorAll('.conversation-header');
+        headers.forEach(header => {
+            header.addEventListener('click', (event) => {
+                if (document.getElementById('ai-chat-enhancer-sidebar').classList.contains('multi-select-mode')) {
+                    const checkbox = header.querySelector('.conversation-checkbox');
+                    if (event.target !== checkbox) { // 避免重复触发
+                        checkbox.checked = !checkbox.checked;
+                        updateCopyButtonState();
+                    }
+                }
+            });
+            
+            // 添加键盘访问支持
+            header.addEventListener('keypress', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    if (document.getElementById('ai-chat-enhancer-sidebar').classList.contains('multi-select-mode')) {
+                        const checkbox = header.querySelector('.conversation-checkbox');
+                        checkbox.checked = !checkbox.checked;
+                        updateCopyButtonState();
+                    }
+                }
+            });
+        });
     }
 }
 
