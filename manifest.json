@@ -8,9 +8,8 @@
     "storage"
   ],
   "host_permissions": [
-    "https://chat.openai.com/*",
     "https://chatgpt.com/*",
-    "https://qianwen.aliyun.com/*"
+    "https://tongyi.aliyun.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -23,9 +22,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://chat.openai.com/*",
         "https://chatgpt.com/c/*",
-        "https://qianwen.aliyun.com/*"
+        "https://tongyi.aliyun.com/qianwen/*"
       ],
       "js": ["content.js"],
       "css": ["styles.css"],

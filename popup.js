@@ -1,4 +1,29 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    // 检查当前页面是否为支持的网站
+    async function checkValidSite() {
+        try {
+            const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+            if (!tab?.url) return false;
+
+            const validUrls = [
+                'https://chatgpt.com/c',
+                'https://tongyi.aliyun.com/qianwen'
+            ];
+
+            return validUrls.some(url => tab.url.startsWith(url));
+        } catch (error) {
+            console.error('检查网站有效性失败:', error);
+            return false;
+        }
+    }
+
+    // 如果不是有效网站，直接关闭弹窗
+    const isValidSite = await checkValidSite();
+    if (!isValidSite) {
+        window.close();
+        return;
+    }
+
     console.log('弹出窗口加载完成');
     
     const sidebarToggle = document.getElementById('sidebarToggle');
@@ -108,8 +133,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
             currentState.sidebarVisible = newState;
         } catch (error) {
-            console.error('���换侧边栏失败:', error);
-            this.checked = currentState.sidebarVisible; // 恢复之前的状态
+            console.error('切换侧边栏失败:', error);
+            this.checked = currentState.sidebarVisible;
             showFeedback(exportMarkdownButton, '切换失败', true);
         }
     });
@@ -131,7 +156,7 @@ document.addEventListener('DOMContentLoaded', function() {
             currentState.conversationWidth = level;
         } catch (error) {
             console.error('调整宽度失败:', error);
-            widthSlider.value = currentState.conversationWidth; // 恢复之前的值
+            widthSlider.value = currentState.conversationWidth;
             showFeedback(exportMarkdownButton, '调整失败', true);
         } finally {
             currentState.isAdjustingWidth = false;
@@ -171,7 +196,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化
     try {
         initializeElements();
-        // 初始设置
+        // 初始化设置
         chrome.storage.sync.get(['sidebarVisible', 'conversationWidth'], (result) => {
             if (result.sidebarVisible !== undefined) {
                 sidebarToggle.checked = result.sidebarVisible;
