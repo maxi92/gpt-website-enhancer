@@ -357,6 +357,96 @@ function truncateText(text, maxLength = 100, isAnswer = false) {
     return text.substring(0, limit) + '...';
 }
 
+// 网站配置
+const SITE_CONFIGS = {
+    chatgpt: {
+        conversationSelector: '[data-testid^="conversation-turn-"]',
+        humanMessageSelector: '[data-message-author-role="user"]',
+        aiMessageSelector: '[data-message-author-role="assistant"]',
+        messageContentSelector: {
+            human: '.whitespace-pre-wrap',
+            ai: '.markdown'
+        },
+        site: 'chatgpt'
+    },
+    tongyi: {
+        conversationSelector: '.questionItem--dS3Alcnv, .answerItem--U4_Uv3iw',
+        humanMessageSelector: '.questionItem--dS3Alcnv',
+        aiMessageSelector: '.answerItem--U4_Uv3iw',
+        messageContentSelector: {
+            human: '.bubble--H3ZjjTnP',
+            ai: '.tongyi-markdown'
+        },
+        site: 'tongyi'
+    }
+};
+
+// 获取当前网站的配置
+function getCurrentSiteConfig() {
+    const hostname = window.location.hostname;
+    if (hostname.includes('chat.openai.com')) {
+        return SITE_CONFIGS.chatgpt;
+    } else if (hostname.includes('tongyi.aliyun.com')) {
+        return SITE_CONFIGS.tongyi;
+    }
+    return null;
+}
+
+// 获取对话内容的函数
+function getConversationContent() {
+    const siteConfig = getCurrentSiteConfig();
+    if (!siteConfig) return [];
+    
+    const conversations = [];
+    const elements = document.querySelectorAll(siteConfig.conversationSelector);
+    console.log('找到元素数量:', elements.length);
+    
+    // 将问答组织成对
+    const pairs = [];
+    let currentPair = {};
+    
+    elements.forEach((element) => {
+        const isHuman = element.matches(siteConfig.humanMessageSelector);
+        const contentSelector = isHuman 
+            ? siteConfig.messageContentSelector.human 
+            : siteConfig.messageContentSelector.ai;
+        const contentElement = element.querySelector(contentSelector);
+        
+        if (contentElement) {
+            const content = contentElement.textContent.trim();
+            if (isHuman) {
+                currentPair = { question: content, questionElement: element };
+            } else {
+                if (currentPair.question) {
+                    currentPair.answer = content;
+                    currentPair.answerElement = element;
+                    pairs.push({ ...currentPair });
+                    currentPair = {};
+                }
+            }
+        }
+    });
+    
+    // 转换为导航项格式
+    pairs.forEach((pair, index) => {
+        conversations.push({
+            id: index,
+            type: 'group',
+            question: pair.question,
+            answer: pair.answer,
+            questionElement: pair.questionElement,
+            answerElement: pair.answerElement,
+            previewText: {
+                question: pair.question.length > 50 ? pair.question.substring(0, 50) + '...' : pair.question,
+                answer: pair.answer.length > 50 ? pair.answer.substring(0, 50) + '...' : pair.answer
+            }
+        });
+    });
+    
+    console.log('处理后的对话组数:', conversations.length);
+    return conversations;
+}
+
 // 更新侧边栏内容
 function updateSidebar() {
     console.log('更新侧边栏内容');
@@ -366,29 +456,81 @@ function updateSidebar() {
         return;
     }
 
-    const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
-    console.log(`找到 ${conversations.length} 条对话用于侧边栏`);
-    
-    // 将对话按组配对
-    const groups = [];
-    for (let i = 0; i < conversations.length; i += 2) {
-        if (i + 1 < conversations.length) {
-            groups.push([conversations[i], conversations[i + 1]]);
-        } else {
-            groups.push([conversations[i]]);
-        }
-    }
-    
-    // 生成新的HTML
+    const hostname = window.location.hostname;
     let newHtml = '';
-    groups.forEach((group, index) => {
-        const userMessage = group[0].querySelector('[data-message-author-role="user"]');
-        const assistantMessage = group[1]?.querySelector('[data-message-author-role="assistant"]');
+
+    // ChatGPT页面的处理
+    if (hostname.includes('chatgpt.com')) {
+        const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
+        console.log(`找到 ${conversations.length} 条ChatGPT对话`);
         
-        if (userMessage) {
-            const userContent = userMessage.querySelector('.whitespace-pre-wrap')?.textContent?.trim() || '空内容';
-            const assistantContent = assistantMessage?.querySelector('.markdown')?.textContent?.trim() || '等待回复...';
+        // 将对话按组配对
+        const groups = [];
+        for (let i = 0; i < conversations.length; i += 2) {
+            if (i + 1 < conversations.length) {
+                groups.push([conversations[i], conversations[i + 1]]);
+            } else {
+                groups.push([conversations[i]]);
+            }
+        }
+        
+        groups.forEach((group, index) => {
+            const userMessage = group[0].querySelector('[data-message-author-role="user"]');
+            const assistantMessage = group[1]?.querySelector('[data-message-author-role="assistant"]');
             
+            if (userMessage) {
+                const userContent = userMessage.querySelector('.whitespace-pre-wrap')?.textContent?.trim() || '空内容';
+                const assistantContent = assistantMessage?.querySelector('.markdown')?.textContent?.trim() || '等待回复...';
+                
+                newHtml += `
+                    <div class="conversation-group" data-index="${index}">
+                        <div class="conversation-header" role="button" tabindex="0">
+                            <input type="checkbox" class="conversation-checkbox">
+                            <span class="conversation-number">#${index + 1}</span>
+                        </div>
+                        <div class="conversation-item user">
+                            <span class="conversation-icon">Q:</span>
+                            <span class="conversation-text">${truncateText(userContent, 100, false)}</span>
+                        </div>
+                        <div class="conversation-item assistant">
+                            <span class="conversation-icon">A:</span>
+                            <span class="conversation-text">${truncateText(assistantContent, 100, true)}</span>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+    }
+    // 通义千问页面的处理
+    else if (hostname.includes('tongyi.aliyun.com')) {
+        // 等待主容器加载
+        const mainContainer = document.querySelector('.scrollWrapper--oanFSFJG');
+        if (!mainContainer) {
+            console.log('通义千问主容器未加载，跳过更新');
+            return;
+        }
+
+        const questions = mainContainer.querySelectorAll('.questionItem--dS3Alcnv');
+        const answers = mainContainer.querySelectorAll('.answerItem--U4_Uv3iw');
+        console.log(`找到 ${questions.length} 个问题和 ${answers.length} 个回答`);
+
+        // 将问答组织成对
+        const pairs = [];
+        questions.forEach((question, index) => {
+            const answer = answers[index];
+            if (question && answer) {
+                const questionContent = question.querySelector('.bubble--H3ZjjTnP')?.textContent?.trim() || '空内容';
+                const answerContent = answer.querySelector('.tongyi-markdown')?.textContent?.trim() || '等待回复...';
+                pairs.push({
+                    question: questionContent,
+                    answer: answerContent,
+                    questionElement: question,
+                    answerElement: answer
+                });
+            }
+        });
+
+        pairs.forEach((pair, index) => {
             newHtml += `
                 <div class="conversation-group" data-index="${index}">
                     <div class="conversation-header" role="button" tabindex="0">
@@ -397,43 +539,46 @@ function updateSidebar() {
                     </div>
                     <div class="conversation-item user">
                         <span class="conversation-icon">Q:</span>
-                        <span class="conversation-text">${truncateText(userContent, 100, false)}</span>
+                        <span class="conversation-text">${truncateText(pair.question, 100, false)}</span>
                     </div>
                     <div class="conversation-item assistant">
                         <span class="conversation-icon">A:</span>
-                        <span class="conversation-text">${truncateText(assistantContent, 100, true)}</span>
+                        <span class="conversation-text">${truncateText(pair.answer, 100, true)}</span>
                     </div>
                 </div>
             `;
-        }
-    });
-    
+        });
+    }
+
     // 只有当内容真的变化时才更新
     if (sidebarContent.innerHTML !== newHtml) {
         sidebarContent.innerHTML = newHtml;
         console.log('侧边栏更新完成');
         
-        // 添加点击事件处理
-        const headers = sidebarContent.querySelectorAll('.conversation-header');
-        headers.forEach(header => {
-            header.addEventListener('click', (event) => {
-                if (document.getElementById('ai-chat-enhancer-sidebar').classList.contains('multi-select-mode')) {
-                    const checkbox = header.querySelector('.conversation-checkbox');
-                    if (event.target !== checkbox) { // 避免重复触发
-                        checkbox.checked = !checkbox.checked;
+        // 添加点击��件处理
+        const groups = sidebarContent.querySelectorAll('.conversation-group');
+        groups.forEach(group => {
+            group.addEventListener('click', (event) => {
+                const checkbox = event.target.closest('.conversation-checkbox');
+                const isMultiSelect = document.getElementById('ai-chat-enhancer-sidebar').classList.contains('multi-select-mode');
+                
+                if (checkbox) {
+                    event.stopPropagation();
+                    updateCopyButtonState();
+                } else if (isMultiSelect) {
+                    const groupCheckbox = group.querySelector('.conversation-checkbox');
+                    if (groupCheckbox) {
+                        groupCheckbox.checked = !groupCheckbox.checked;
                         updateCopyButtonState();
                     }
-                }
-            });
-            
-            // 添加键盘访问支持
-            header.addEventListener('keypress', (event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    if (document.getElementById('ai-chat-enhancer-sidebar').classList.contains('multi-select-mode')) {
-                        const checkbox = header.querySelector('.conversation-checkbox');
-                        checkbox.checked = !checkbox.checked;
-                        updateCopyButtonState();
+                } else {
+                    const index = parseInt(group.dataset.index);
+                    if (hostname.includes('chat.openai.com')) {
+                        const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
+                        conversations[index * 2]?.scrollIntoView({ behavior: 'smooth' });
+                    } else if (hostname.includes('tongyi.aliyun.com')) {
+                        const questions = document.querySelectorAll('.questionItem--dS3Alcnv');
+                        questions[index]?.scrollIntoView({ behavior: 'smooth' });
                     }
                 }
             });
@@ -688,7 +833,7 @@ async function adjustConversationWidth(level) {
                 WIDTH_CLASS_PREFIXES.forEach(prefix => {
                     container.classList.forEach(cls => {
                         if (cls.startsWith(prefix)) {
-                            console.log('移除宽度类:', cls);
+                            console.log('��除宽度类:', cls);
                             container.classList.remove(cls);
                         }
                     });
@@ -996,8 +1141,16 @@ function init() {
                 if (target.closest('#ai-chat-enhancer-sidebar')) {
                     return false;
                 }
-                // 只关注对话内容的变化
-                return target.closest('[data-testid^="conversation-turn-"]');
+
+                const hostname = window.location.hostname;
+                if (hostname.includes('chatgpt.com')) {
+                    return target.closest(SELECTORS.MESSAGE_CONTAINER);
+                } else if (hostname.includes('tongyi.aliyun.com')) {
+                    return target.closest('.questionItem--dS3Alcnv') || 
+                           target.closest('.answerItem--U4_Uv3iw') ||
+                           target.closest('.scrollWrapper--oanFSFJG');
+                }
+                return false;
             });
 
             if (shouldUpdate) {
@@ -1017,9 +1170,62 @@ function init() {
             characterData: true
         });
         console.log('已启动页面观察器');
-        
-        // 初始更新侧边栏
-        updateSidebar();
+
+        // 初始化定时更新机制
+        let updateAttempts = 0;
+        const maxAttempts = 10; // 最多尝试10次
+        const updateInterval = setInterval(() => {
+            const hostname = window.location.hostname;
+            if (hostname.includes('chat.openai.com')) {
+                const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
+                if (conversations.length > 0) {
+                    console.log('ChatGPT对话已加载，更新导航栏');
+                    updateSidebar();
+                    clearInterval(updateInterval);
+                } else {
+                    console.log('等待ChatGPT对话加载...');
+                    updateAttempts++;
+                    if (updateAttempts >= maxAttempts) {
+                        console.log('达到最大尝试次数，停止自动更新');
+                        clearInterval(updateInterval);
+                    }
+                }
+            } else if (hostname.includes('tongyi.aliyun.com')) {
+                const questions = document.querySelectorAll('.questionItem--dS3Alcnv');
+                const answers = document.querySelectorAll('.answerItem--U4_Uv3iw');
+                if (questions.length > 0 || answers.length > 0) {
+                    console.log('通义千问对话已加载，更新导航栏');
+                    updateSidebar();
+                    clearInterval(updateInterval);
+                } else {
+                    console.log('等待通义千问对话加载...');
+                    updateAttempts++;
+                    if (updateAttempts >= maxAttempts) {
+                        console.log('达到最大尝试次数，停止自动更新');
+                        clearInterval(updateInterval);
+                    }
+                }
+            }
+        }, 1000); // 每秒检查一次
+
+        // 添加定期刷新机制
+        setInterval(() => {
+            const hostname = window.location.hostname;
+            if (hostname.includes('chat.openai.com')) {
+                const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
+                if (conversations.length > 0) {
+                    console.log('定期刷新ChatGPT导航栏');
+                    updateSidebar();
+                }
+            } else if (hostname.includes('tongyi.aliyun.com')) {
+                const questions = document.querySelectorAll('.questionItem--dS3Alcnv');
+                const answers = document.querySelectorAll('.answerItem--U4_Uv3iw');
+                if (questions.length > 0 || answers.length > 0) {
+                    console.log('定期刷新通义千问导航栏');
+                    updateSidebar();
+                }
+            }
+        }, 5000); // 每5秒刷新一次
         
         console.log('插件初始化完成');
     } catch (error) {
