@@ -70,7 +70,7 @@ function createSidebar() {
         }
     }
     
-    // 添加多选按钮事件监听
+    // ��加多选按钮事件监听
     const multiSelectButton = sidebar.querySelector('#multiSelect');
     const copySelectedButton = sidebar.querySelector('#copySelected');
     
@@ -96,12 +96,30 @@ function createSidebar() {
         let copyText = '';
         selectedGroups.forEach(checkbox => {
             const group = checkbox.closest('.conversation-group');
-            const question = group.querySelector('.conversation-item.user .conversation-text').textContent;
-            const answer = group.querySelector('.conversation-item.assistant .conversation-text').textContent;
-            copyText += `Q: ${question}\nA: ${answer}\n\n`;
+            const index = parseInt(group.dataset.index);
+            
+            // 获取原始元素
+            const hostname = window.location.hostname;
+            let questionElement, answerElement;
+            
+            if (hostname.includes('chatgpt.com')) {
+                const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
+                questionElement = conversations[index * 2];
+                answerElement = conversations[index * 2 + 1];
+            } else if (hostname.includes('tongyi.aliyun.com')) {
+                const questions = document.querySelectorAll('.questionItem--dS3Alcnv');
+                const answers = document.querySelectorAll('.answerItem--U4_Uv3iw');
+                questionElement = questions[index];
+                answerElement = answers[index];
+            }
+            
+            if (questionElement && answerElement) {
+                const { question, answer } = getFullConversationContent(questionElement, answerElement);
+                copyText += `### 对话 ${index + 1}\n\n**问题**：${question}\n\n**回答**：${answer}\n\n---\n\n`;
+            }
         });
         
-        navigator.clipboard.writeText(copyText).then(() => {
+        navigator.clipboard.writeText(copyText.trim()).then(() => {
             const button = this;
             const originalText = button.textContent;
             button.textContent = '已复制！';
@@ -1006,4 +1024,21 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
     init();
+}
+
+// 获取对话的完整内容
+function getFullConversationContent(questionElement, answerElement) {
+    const hostname = window.location.hostname;
+    let question = '';
+    let answer = '';
+
+    if (hostname.includes('chatgpt.com')) {
+        question = questionElement.querySelector('[data-message-author-role="user"] .whitespace-pre-wrap')?.textContent?.trim() || '';
+        answer = answerElement?.querySelector('[data-message-author-role="assistant"] .markdown')?.textContent?.trim() || '';
+    } else if (hostname.includes('tongyi.aliyun.com')) {
+        question = questionElement.querySelector('.bubble--H3ZjjTnP')?.textContent?.trim() || '';
+        answer = answerElement.querySelector('.tongyi-markdown')?.textContent?.trim() || '';
+    }
+
+    return { question, answer };
 }
