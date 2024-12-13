@@ -196,8 +196,10 @@ function createSidebar() {
         if (result.sidebarWidth) {
             sidebar.style.width = result.sidebarWidth + 'px';
         }
-        const isVisible = result.sidebarVisible !== false;
+        // 明确设置显示状态，使用严格的布尔值判断
+        const isVisible = result.sidebarVisible === true;
         sidebar.style.display = isVisible ? 'flex' : 'none';
+        // 确保存储状态与实际状态一致
         chrome.storage.sync.set({ sidebarVisible: isVisible });
     });
 
@@ -555,7 +557,7 @@ function updateSidebar() {
         sidebarContent.innerHTML = newHtml;
         console.log('侧边栏更新完成');
         
-        // 添加点击��件处理
+        // 添加点击事件处理
         const groups = sidebarContent.querySelectorAll('.conversation-group');
         groups.forEach(group => {
             group.addEventListener('click', (event) => {
@@ -676,7 +678,7 @@ function convertToMarkdown(generateToc = false) {
         const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
         console.log(`找到 ${conversations.length} 条对话`);
         
-        // 如果需要生成目录，先收集所有问题
+        // 如果需要生成目录，先收集所有题
         if (generateToc) {
             const questions = [];
             conversations.forEach((conv) => {
@@ -833,7 +835,7 @@ async function adjustConversationWidth(level) {
                 WIDTH_CLASS_PREFIXES.forEach(prefix => {
                     container.classList.forEach(cls => {
                         if (cls.startsWith(prefix)) {
-                            console.log('��除宽度类:', cls);
+                            console.log('移除宽度类:', cls);
                             container.classList.remove(cls);
                         }
                     });
@@ -845,7 +847,7 @@ async function adjustConversationWidth(level) {
                     container.classList.add(cls);
                 });
 
-                console.log('更新后的类名:', container.className);
+                console.log('更新后类名:', container.className);
             });
 
             // 更新状态并保存
@@ -1007,17 +1009,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('收到消息:', request.action);
     
     if (request.action === 'getSettings') {
-        // 确保返回实际的侧边栏状态
         const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
-        const actualSidebarVisible = sidebar ? sidebar.style.display !== 'none' : true;
+        // 使用实际的显示状态来判断
+        const actualSidebarVisible = sidebar ? sidebar.style.display === 'flex' : false;
         
-        loadSettings().then(settings => {
-            // 如果实际状态与存储状态不一致，更新存储
-            if (settings.sidebarVisible !== actualSidebarVisible) {
+        chrome.storage.sync.get(['sidebarVisible', 'conversationWidth', 'sidebarWidth'], (result) => {
+            // 如果存储状态与实际状态不一致，以实际状态为准
+            if (result.sidebarVisible !== actualSidebarVisible) {
                 chrome.storage.sync.set({ sidebarVisible: actualSidebarVisible });
-                settings.sidebarVisible = actualSidebarVisible;
             }
-            sendResponse(settings);
+            sendResponse({
+                sidebarVisible: actualSidebarVisible,
+                conversationWidth: result.conversationWidth || 0,
+                sidebarWidth: result.sidebarWidth || 380
+            });
         });
         return true;
     }
@@ -1027,7 +1032,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (sidebar) {
             const isVisible = request.visible;
             sidebar.style.display = isVisible ? 'flex' : 'none';
-            // 确保立即保存状态
+            // 确保存储状态与显示状态一致
             chrome.storage.sync.set({ sidebarVisible: isVisible }, () => {
                 console.log('保存侧边栏状态:', isVisible);
                 sendResponse({ 
@@ -1037,7 +1042,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 });
             });
         }
-        return true; // 保持消息通道开放
+        return true;
     }
     
     if (request.action === 'adjustWidth') {
@@ -1064,7 +1069,7 @@ async function initialize() {
         await applySettings();
         await initializeWidthSettings();
         
-        // 添加 MutationObserver 来监听动态加载的内容
+        // 添加 MutationObserver 监听动态加载的内容
         const observer = new MutationObserver(async (mutations) => {
             const hasNewContent = mutations.some(mutation => 
                 mutation.addedNodes.length > 0 && 
@@ -1126,6 +1131,21 @@ function init() {
         // 创建侧边栏
         const sidebar = createSidebar();
         
+        // 确保初始状态正确
+        chrome.storage.sync.get(['sidebarVisible'], (result) => {
+            if (sidebar) {
+                // 使用严格的布尔值判断
+                const isVisible = result.sidebarVisible === true;
+                // 使用延时确保在DOM完全加载后设置状态
+                setTimeout(() => {
+                    sidebar.style.display = isVisible ? 'flex' : 'none';
+                    // 同步存储状态
+                    chrome.storage.sync.set({ sidebarVisible: isVisible });
+                    console.log('设置初始显示状态:', isVisible);
+                }, 100);
+            }
+        });
+
         // 创建观察器以监听页面变化
         let updateTimeout = null;
         const observer = new MutationObserver((mutations) => {
@@ -1154,7 +1174,7 @@ function init() {
             });
 
             if (shouldUpdate) {
-                // 使用防抖，避免频繁更新
+                // 使用抖，避免频繁更新
                 clearTimeout(updateTimeout);
                 updateTimeout = setTimeout(() => {
                     console.log('检测到对话变化');
