@@ -37,10 +37,10 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // 状态管理
     let currentState = {
-        sidebarVisible: true,
+        sidebarVisible: false,
         conversationWidth: 0,
         isAdjustingWidth: false,
-        currentMarkdown: '' // 存储当前的Markdown内容
+        currentMarkdown: ''
     };
 
     // 显示状态反馈
@@ -196,17 +196,26 @@ document.addEventListener('DOMContentLoaded', async function() {
     // 初始化
     try {
         initializeElements();
-        // 初始化设置
-        chrome.storage.sync.get(['sidebarVisible', 'conversationWidth'], (result) => {
-            if (result.sidebarVisible !== undefined) {
-                sidebarToggle.checked = result.sidebarVisible;
-                currentState.sidebarVisible = result.sidebarVisible;
-            }
-            if (result.conversationWidth !== undefined) {
-                widthSlider.value = result.conversationWidth;
-                currentState.conversationWidth = result.conversationWidth;
-            }
+        
+        // 获取当前标签页
+        const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+        if (!tab) throw new Error('未找到活动标签页');
+        
+        // 从content script获取实际状态
+        const response = await chrome.tabs.sendMessage(tab.id, {
+            action: 'getSettings'
         });
+        
+        // 使用实际的状态更新UI和存储
+        if (response) {
+            sidebarToggle.checked = response.sidebarVisible;
+            currentState.sidebarVisible = response.sidebarVisible;
+            
+            // 同步存储状态
+            chrome.storage.sync.set({ 
+                sidebarVisible: response.sidebarVisible 
+            });
+        }
     } catch (error) {
         console.error('初始化失败:', error);
         showFeedback(exportMarkdownButton, '初始化失败', true);

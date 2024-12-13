@@ -1,222 +1,24 @@
 // 创建侧边栏容器
 function createSidebar() {
-    console.log('创建侧边栏');
-    
-    // 添加样式
-    const style = document.createElement('style');
-    style.textContent = `
-        #ai-chat-enhancer-sidebar {
-            position: fixed;
-            top: 0;
-            right: 0;
-            height: 100vh;
-            width: 380px;
-            background: #ffffff;
-            display: flex;
-            flex-direction: column;
-            box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
-            z-index: 1000;
-            transition: width 0.3s ease;
-            border-left: 1px solid #e8f0fe;
-        }
-
-        .sidebar-resizer {
-            position: absolute;
-            left: -5px;
-            top: 0;
-            width: 10px;
-            height: 100%;
-            cursor: col-resize;
-            background: transparent;
-            z-index: 1001;
-        }
-
-        .sidebar-resizer:hover {
-            background: rgba(26, 115, 232, 0.1);
-        }
-
-        .sidebar-header {
-            padding: 16px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #e8f0fe;
-            font-size: 16px;
-            font-weight: 600;
-            color: #1a73e8;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .sidebar-header-buttons {
-            display: flex;
-            gap: 8px;
-        }
-
-        .sidebar-button {
-            padding: 6px 12px;
-            border: none;
-            border-radius: 4px;
-            background: #e8f0fe;
-            color: #1a73e8;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
-
-        .sidebar-button:hover {
-            background: #d2e3fc;
-        }
-
-        .sidebar-button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .sidebar-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 16px;
-            background: #ffffff;
-        }
-
-        .conversation-group {
-            margin-bottom: 16px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid #e8f0fe;
-            transition: all 0.2s ease;
-        }
-
-        .conversation-group:hover {
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .conversation-header {
-            padding: 8px 12px;
-            background: #e8f0fe;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .conversation-checkbox {
-            width: 16px;
-            height: 16px;
-            cursor: pointer;
-        }
-
-        .conversation-number {
-            font-size: 13px;
-            font-weight: 500;
-            color: #1a73e8;
-        }
-
-        .conversation-item {
-            padding: 12px;
-            border-bottom: 1px solid #e8f0fe;
-            cursor: pointer;
-            transition: background 0.2s ease;
-        }
-
-        .conversation-item:hover {
-            background: #f1f3f4;
-        }
-
-        .conversation-item:last-child {
-            border-bottom: none;
-        }
-
-        .conversation-icon {
-            display: inline-block;
-            width: 24px;
-            font-weight: 600;
-            color: #5f6368;
-        }
-
-        .conversation-text {
-            display: inline-block;
-            margin-left: 8px;
-            color: #3c4043;
-            font-size: 13px;
-            line-height: 1.4;
-            word-break: break-word;
-        }
-
-        .conversation-item.user {
-            background: #f8f9fa;
-        }
-
-        .conversation-item.assistant {
-            background: #ffffff;
-        }
-
-        /* 滚动条样式 */
-        .sidebar-content::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .sidebar-content::-webkit-scrollbar-track {
-            background: #f1f3f4;
-        }
-
-        .sidebar-content::-webkit-scrollbar-thumb {
-            background: #dadce0;
-            border-radius: 4px;
-        }
-
-        .sidebar-content::-webkit-scrollbar-thumb:hover {
-            background: #bdc1c6;
-        }
-
-        /* 多选模式样式 */
-        .multi-select-mode .conversation-group {
-            border: 1px solid #1a73e8;
-        }
-
-        .multi-select-mode .conversation-checkbox {
-            display: block;
-        }
-
-        .conversation-checkbox {
-            display: none;
-        }
-    `;
-    
-    document.head.appendChild(style);
-
     const sidebar = document.createElement('div');
     sidebar.id = 'ai-chat-enhancer-sidebar';
+    // 默认设置为不显示
+    sidebar.style.display = 'none';
+    // 设置初始宽度
     sidebar.style.width = '380px';
     
-    // 从存储中读取保存的宽度和显示状态
-    chrome.storage.sync.get(['sidebarWidth', 'sidebarVisible'], (result) => {
-        console.log('读取侧边栏设置:', result);
-        if (result.sidebarWidth) {
-            sidebar.style.width = result.sidebarWidth + 'px';
-        }
-        // 明确设置显示状态，使用严格的布尔值判断
-        const isVisible = result.sidebarVisible === true;
-        sidebar.style.display = isVisible ? 'flex' : 'none';
-        // 确保存储状态与实际状态一致
-        chrome.storage.sync.set({ sidebarVisible: isVisible });
-    });
-
     sidebar.innerHTML = `
         <div class="sidebar-resizer"></div>
         <div class="sidebar-header">
-            对话导航
+            <span>对话导航</span>
             <div class="sidebar-header-buttons">
-                <button class="sidebar-button copy-selected" id="copySelected" disabled>复制选中对话</button>
-                <button class="sidebar-button" id="multiSelectToggle">多选</button>
+                <button id="multiSelect" class="sidebar-button">多选</button>
+                <button id="copySelected" class="sidebar-button copy-selected" disabled>复制选中</button>
             </div>
         </div>
         <div class="sidebar-content"></div>
     `;
-
-    document.body.appendChild(sidebar);
-
+    
     // 添加宽度调整功能
     const resizer = sidebar.querySelector('.sidebar-resizer');
     let isResizing = false;
@@ -263,60 +65,61 @@ function createSidebar() {
         if (!isResizing) return;
         
         const width = startWidth - (e.pageX - startX);
-        if (width >= 240 && width <= 700) {  // 使用与 CSS 中相同的最小和最大宽度
+        if (width >= 240 && width <= 600) {  // 限制最小和最大宽度
             sidebar.style.width = `${width}px`;
         }
     }
-
-    // 添加多选按钮事件
-    const multiSelectToggle = sidebar.querySelector('#multiSelectToggle');
-    const copySelected = sidebar.querySelector('#copySelected');
     
-    multiSelectToggle.addEventListener('click', () => {
-        const isMultiSelect = sidebar.classList.toggle('multi-select-mode');
-        multiSelectToggle.textContent = isMultiSelect ? '取消多选' : '多选';
-        copySelected.style.display = isMultiSelect ? 'inline-block' : 'none';
-        updateCopyButtonState();
-    });
-
-    copySelected.addEventListener('click', () => {
-        const selectedGroups = Array.from(document.querySelectorAll('.conversation-group'))
-            .filter(group => group.querySelector('.conversation-checkbox:checked'));
+    // 添加多选按钮事件监听
+    const multiSelectButton = sidebar.querySelector('#multiSelect');
+    const copySelectedButton = sidebar.querySelector('#copySelected');
+    
+    multiSelectButton.addEventListener('click', function() {
+        const isMultiSelectMode = sidebar.classList.toggle('multi-select-mode');
+        this.textContent = isMultiSelectMode ? '取消多选' : '多选';
         
-        if (selectedGroups.length > 0) {
-            const markdown = convertSelectedToMarkdown(selectedGroups);
-            copyToClipboard(markdown);
-            copySelected.textContent = '复制成功';
+        // 重置所有复选框的状态
+        const checkboxes = sidebar.querySelectorAll('.conversation-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        
+        // 更新复制按钮状态
+        copySelectedButton.disabled = true;
+    });
+    
+    // 添加复制选中按钮事件监听
+    copySelectedButton.addEventListener('click', function() {
+        const selectedGroups = sidebar.querySelectorAll('.conversation-checkbox:checked');
+        if (selectedGroups.length === 0) return;
+        
+        let copyText = '';
+        selectedGroups.forEach(checkbox => {
+            const group = checkbox.closest('.conversation-group');
+            const question = group.querySelector('.conversation-item.user .conversation-text').textContent;
+            const answer = group.querySelector('.conversation-item.assistant .conversation-text').textContent;
+            copyText += `Q: ${question}\nA: ${answer}\n\n`;
+        });
+        
+        navigator.clipboard.writeText(copyText).then(() => {
+            const button = this;
+            const originalText = button.textContent;
+            button.textContent = '已复制！';
             setTimeout(() => {
-                copySelected.textContent = '复制选中对话';
+                button.textContent = originalText;
             }, 2000);
+        });
+    });
+    
+    document.body.appendChild(sidebar);
+    
+    // 从存储中读取并应用保存的宽度
+    chrome.storage.sync.get(['sidebarWidth'], (result) => {
+        if (result.sidebarWidth) {
+            sidebar.style.width = `${result.sidebarWidth}px`;
         }
     });
-
-    // 添加全局事件处理
-    sidebar.addEventListener('click', (event) => {
-        const conversationItem = event.target.closest('.conversation-item');
-        const checkbox = event.target.closest('.conversation-checkbox');
-        const group = event.target.closest('.conversation-group');
-        
-        if (checkbox) {
-            event.stopPropagation();
-            updateCopyButtonState();
-        } else if (conversationItem && sidebar.classList.contains('multi-select-mode') && group) {
-            event.stopPropagation();
-            const groupCheckbox = group.querySelector('.conversation-checkbox');
-            if (groupCheckbox) {
-                groupCheckbox.checked = !groupCheckbox.checked;
-                updateCopyButtonState();
-            }
-        } else if (conversationItem) {
-            const index = parseInt(group.dataset.index);
-            const conversations = document.querySelectorAll('[data-testid^="conversation-turn-"]');
-            conversations[index * 2]?.scrollIntoView({ behavior: 'smooth' });
-        }
-    });
-
-    console.log('侧边栏创建完成');
+    
     return sidebar;
 }
 
@@ -347,8 +150,9 @@ function convertSelectedToMarkdown(groups) {
 
 // 更新复制按钮状态
 function updateCopyButtonState() {
-    const copyButton = document.querySelector('#copySelected');
-    const selectedCount = document.querySelectorAll('.conversation-checkbox:checked').length;
+    const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
+    const copyButton = sidebar.querySelector('#copySelected');
+    const selectedCount = sidebar.querySelectorAll('.conversation-checkbox:checked').length;
     copyButton.disabled = selectedCount === 0;
 }
 
@@ -552,7 +356,7 @@ function updateSidebar() {
         });
     }
 
-    // 只有当内容真的变化时才更新
+    // 只有当内容真的变化时更新
     if (sidebarContent.innerHTML !== newHtml) {
         sidebarContent.innerHTML = newHtml;
         console.log('侧边栏更新完成');
@@ -873,7 +677,7 @@ async function initializeWidthSettings() {
         
         console.log('加载保存的设置:', result);
         
-        // 设置导航栏显示状态
+        // 设置导航栏显示态
         const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
         if (sidebar) {
             sidebar.style.display = result.sidebarVisible === false ? 'none' : 'flex';
@@ -967,40 +771,22 @@ function saveSettings(settings) {
 // 加载设置
 function loadSettings() {
     return new Promise((resolve) => {
-        const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
-        const actualSidebarVisible = sidebar ? sidebar.style.display !== 'none' : true;
-        
-        chrome.storage.sync.get(['sidebarVisible', 'conversationWidth', 'sidebarWidth'], (result) => {
-            console.log('加载设置:', result, '实际侧边栏状态:', actualSidebarVisible);
-            
-            // 如果存储的状态与实际状态不一致，以实际状态为准
-            if (result.sidebarVisible !== actualSidebarVisible) {
-                chrome.storage.sync.set({ sidebarVisible: actualSidebarVisible });
-            }
-            
-            resolve({
-                sidebarVisible: actualSidebarVisible,
-                conversationWidth: result.conversationWidth || 0,
-                sidebarWidth: result.sidebarWidth || 380
-            });
+        chrome.storage.sync.get(['sidebarVisible'], (result) => {
+            // 如果存储中没有值，默认为false
+            const isVisible = result.sidebarVisible === true;
+            resolve(isVisible);
         });
     });
 }
 
 // 应用设置
 async function applySettings() {
-    const settings = await loadSettings();
-    console.log('应用设置:', settings);
-
-    // 应用侧边栏显示状态
+    const isVisible = await loadSettings();
     const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
     if (sidebar) {
-        sidebar.style.display = settings.sidebarVisible ? 'flex' : 'none';
-    }
-
-    // 应用对话宽度
-    if (settings.conversationWidth !== undefined) {
-        adjustConversationWidth(settings.conversationWidth);
+        sidebar.style.display = isVisible ? 'flex' : 'none';
+        // 同步存储状态
+        chrome.storage.sync.set({ sidebarVisible: isVisible });
     }
 }
 
@@ -1012,17 +798,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
         // 使用实际的显示状态来判断
         const actualSidebarVisible = sidebar ? sidebar.style.display === 'flex' : false;
-        
-        chrome.storage.sync.get(['sidebarVisible', 'conversationWidth', 'sidebarWidth'], (result) => {
-            // 如果存储状态与实际状态不一致，以实际状态为准
-            if (result.sidebarVisible !== actualSidebarVisible) {
-                chrome.storage.sync.set({ sidebarVisible: actualSidebarVisible });
-            }
-            sendResponse({
-                sidebarVisible: actualSidebarVisible,
-                conversationWidth: result.conversationWidth || 0,
-                sidebarWidth: result.sidebarWidth || 380
-            });
+        sendResponse({
+            sidebarVisible: actualSidebarVisible,
+            conversationWidth: 0,
+            sidebarWidth: 380
         });
         return true;
     }
@@ -1032,9 +811,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (sidebar) {
             const isVisible = request.visible;
             sidebar.style.display = isVisible ? 'flex' : 'none';
-            // 确保存储状态与显示状态一致
+            // 保存状态
             chrome.storage.sync.set({ sidebarVisible: isVisible }, () => {
-                console.log('保存侧边栏状态:', isVisible);
                 sendResponse({ 
                     success: true, 
                     actualState: isVisible,
@@ -1125,27 +903,15 @@ if (chatContainer) {
 }
 
 // 初始化插件
-function init() {
+async function init() {
     console.log('开始初始化插件');
     try {
-        // 创建侧边栏
+        // 创建侧边栏（默认隐藏）
         const sidebar = createSidebar();
         
-        // 确保初始状态正确
-        chrome.storage.sync.get(['sidebarVisible'], (result) => {
-            if (sidebar) {
-                // 使用严格的布尔值判断
-                const isVisible = result.sidebarVisible === true;
-                // 使用延时确保在DOM完全加载后设置状态
-                setTimeout(() => {
-                    sidebar.style.display = isVisible ? 'flex' : 'none';
-                    // 同步存储状态
-                    chrome.storage.sync.set({ sidebarVisible: isVisible });
-                    console.log('设置初始显示状态:', isVisible);
-                }, 100);
-            }
-        });
-
+        // 应用存储的设置
+        await applySettings();
+        
         // 创建观察器以监听页面变化
         let updateTimeout = null;
         const observer = new MutationObserver((mutations) => {
@@ -1189,11 +955,11 @@ function init() {
             subtree: true,
             characterData: true
         });
-        console.log('已启动页面观察器');
-
+        
         // 初始化定时更新机制
         let updateAttempts = 0;
-        const maxAttempts = 10; // 最多尝试10次
+        const maxAttempts = 10;
+        
         const updateInterval = setInterval(() => {
             const hostname = window.location.hostname;
             if (hostname.includes('chat.openai.com')) {
@@ -1226,26 +992,7 @@ function init() {
                     }
                 }
             }
-        }, 1000); // 每秒检查一次
-
-        // 添加定期刷新机制
-        setInterval(() => {
-            const hostname = window.location.hostname;
-            if (hostname.includes('chat.openai.com')) {
-                const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
-                if (conversations.length > 0) {
-                    console.log('定期刷新ChatGPT导航栏');
-                    updateSidebar();
-                }
-            } else if (hostname.includes('tongyi.aliyun.com')) {
-                const questions = document.querySelectorAll('.questionItem--dS3Alcnv');
-                const answers = document.querySelectorAll('.answerItem--U4_Uv3iw');
-                if (questions.length > 0 || answers.length > 0) {
-                    console.log('定期刷新通义千问导航栏');
-                    updateSidebar();
-                }
-            }
-        }, 5000); // 每5秒刷新一次
+        }, 1000);
         
         console.log('插件初始化完成');
     } catch (error) {
