@@ -321,7 +321,7 @@ function updateSidebar() {
         const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
         console.log(`找到 ${conversations.length} 条ChatGPT对话`);
         
-        // 将对话按组配���
+        // 将对话按组配
         const groups = [];
         for (let i = 0; i < conversations.length; i += 2) {
             if (i + 1 < conversations.length) {
@@ -650,7 +650,7 @@ function findConversationContainers() {
     const containers = document.querySelectorAll(SELECTORS.CONVERSATION_CONTAINER);
     console.log('找到对话容器数量:', containers.length);
     if (containers.length > 0) {
-        console.log('对话容器当前类��:', containers[0].className);
+        console.log('对话容器当前类:', containers[0].className);
     }
     return containers;
 }
@@ -670,6 +670,12 @@ async function retry(fn, maxAttempts = 5, delay = 1000) {
 
 // 调整对话宽度
 async function adjustConversationWidth(level) {
+    // 如果是通义千问页面，直接返回
+    if (window.location.hostname.includes('tongyi.aliyun.com')) {
+        console.log('通义千问页面不需要调整对话宽度');
+        return;
+    }
+
     console.log('调整宽度到级别:', level);
     
     const setting = WIDTH_SETTINGS[level];
@@ -721,6 +727,12 @@ async function adjustConversationWidth(level) {
 
 // 初始化宽度设置
 async function initializeWidthSettings() {
+    // 如果是通义千问页面，不初始化宽度设置
+    if (window.location.hostname.includes('tongyi.aliyun.com')) {
+        console.log('通义千问页面不需要初始化宽度设置');
+        return;
+    }
+
     try {
         const result = await new Promise(resolve => {
             chrome.storage.sync.get(['conversationWidth', 'widthClasses', 'sidebarVisible'], resolve);
@@ -763,6 +775,12 @@ async function initializeWidthSettings() {
 
 // 创建宽度调整的 MutationObserver
 function createWidthAdjustmentObserver() {
+    // 如果是通义千问页面，不创建观察器
+    if (window.location.hostname.includes('tongyi.aliyun.com')) {
+        console.log('通义千问页面不需要创建宽度调整观察器');
+        return null;
+    }
+
     const observer = new MutationObserver((mutations) => {
         const relevantMutation = mutations.some(mutation => {
             if (mutation.type !== 'childList' && mutation.type !== 'attributes') return false;
@@ -849,10 +867,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
         // 使用实际的显示状态来判断
         const actualSidebarVisible = sidebar ? sidebar.style.display === 'flex' : false;
+        
+        // 根据页面类型返回不同的设置
+        const isTongyi = window.location.hostname.includes('tongyi.aliyun.com');
         sendResponse({
             sidebarVisible: actualSidebarVisible,
-            conversationWidth: 0,
-            sidebarWidth: 380
+            conversationWidth: isTongyi ? undefined : currentWidthLevel, // 通义千问页面不返回宽度设置
+            sidebarWidth: 380,
+            isTongyi: isTongyi // 添加页面类型标识
         });
         return true;
     }
@@ -875,8 +897,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     
     if (request.action === 'adjustWidth') {
-        adjustConversationWidth(request.widthLevel);
-        saveSettings({ conversationWidth: request.widthLevel });
+        // 如果是通义千问页面，忽略宽度调整请求
+        if (!window.location.hostname.includes('tongyi.aliyun.com')) {
+            adjustConversationWidth(request.widthLevel);
+            saveSettings({ conversationWidth: request.widthLevel });
+        }
         sendResponse({ success: true });
     }
 

@@ -1,223 +1,166 @@
-document.addEventListener('DOMContentLoaded', async function() {
-    // 检查当前页面是否为支持的网站
-    async function checkValidSite() {
-        try {
-            const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-            if (!tab?.url) return false;
+// 初始化popup
+function initializePopup() {
+    // 获取当前标签页的设置
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        chrome.tabs.sendMessage(tabs[0].id, { action: 'getSettings' }, function(response) {
+            if (chrome.runtime.lastError) {
+                console.error('获取设置失败:', chrome.runtime.lastError);
+                return;
+            }
 
-            const validUrls = [
-                'https://chatgpt.com/c',
-                'https://tongyi.aliyun.com/qianwen'
-            ];
+            if (!response) {
+                console.error('未收到响应');
+                return;
+            }
 
-            return validUrls.some(url => tab.url.startsWith(url));
-        } catch (error) {
-            console.error('检查网站有效性失败:', error);
-            return false;
-        }
-    }
+            console.log('收到设置:', response);
 
-    // 如果不是有效网站，直接关闭弹窗
-    const isValidSite = await checkValidSite();
-    if (!isValidSite) {
-        window.close();
-        return;
-    }
+            // 更新导航栏开关状态
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            if (sidebarToggle) {
+                sidebarToggle.checked = response.sidebarVisible;
+            }
 
-    console.log('弹出窗口加载完成');
-    
+            // 根据页面类型显示或隐藏宽度调整控件
+            const widthControlGroup = document.getElementById('widthControlGroup');
+            if (widthControlGroup) {
+                // 只在通义千问页面隐藏宽度控制区域
+                if (response.isTongyi) {
+                    widthControlGroup.classList.add('hidden');
+                } else {
+                    widthControlGroup.classList.remove('hidden');
+                    // 更新宽度控制状态
+                    if (response.conversationWidth !== undefined) {
+                        const widthSlider = document.getElementById('widthSlider');
+                        if (widthSlider) {
+                            widthSlider.value = response.conversationWidth;
+                        }
+                    }
+                }
+            }
+        });
+    });
+}
+
+// 添加事件监听器
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化popup
+    initializePopup();
+
+    // 导航栏开关事件监听
     const sidebarToggle = document.getElementById('sidebarToggle');
+    if (sidebarToggle) {
+        sidebarToggle.addEventListener('change', function() {
+            chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+                chrome.tabs.sendMessage(tabs[0].id, {
+                    action: 'toggleSidebar',
+                    visible: sidebarToggle.checked
+                }, function(response) {
+                    if (chrome.runtime.lastError) {
+                        console.error('切换导航栏失败:', chrome.runtime.lastError);
+                        return;
+                    }
+                    console.log('导航栏状态已更新:', response);
+                });
+            });
+        });
+    }
+
+    // 宽度调整滑块事件监听
+    const widthSlider = document.getElementById('widthSlider');
+    if (widthSlider) {
+        widthSlider.addEventListener('input', function() {
+            // 检查是否在ChatGPT页面
+            chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+                chrome.tabs.sendMessage(tabs[0].id, { action: 'getSettings' }, function(response) {
+                    if (response && !response.isTongyi) {
+                        const level = parseInt(widthSlider.value);
+                        // 发送消息到content script
+                        chrome.tabs.sendMessage(tabs[0].id, {
+                            action: 'adjustWidth',
+                            widthLevel: level
+                        }, function(response) {
+                            if (chrome.runtime.lastError) {
+                                console.error('调整宽度失败:', chrome.runtime.lastError);
+                                return;
+                            }
+                            console.log('宽度已调整:', response);
+                        });
+                    }
+                });
+            });
+        });
+    }
+
+    // Markdown导���按钮事件监听
     const exportMarkdownButton = document.getElementById('exportMarkdown');
     const markdownOutput = document.getElementById('markdownOutput');
     const copyMarkdownButton = document.getElementById('copyMarkdown');
-    const tocToggle = document.getElementById('tocToggle');
     const tocContainer = document.getElementById('tocContainer');
-    const widthSlider = document.getElementById('widthSlider');
-    const optionRow = document.querySelector('.option-row');
+    const tocToggle = document.getElementById('tocToggle');
 
-    // 状态管理
-    let currentState = {
-        sidebarVisible: false,
-        conversationWidth: 0,
-        isAdjustingWidth: false,
-        currentMarkdown: ''
-    };
+    if (exportMarkdownButton) {
+        exportMarkdownButton.addEventListener('click', function() {
+            chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+                chrome.tabs.sendMessage(tabs[0].id, {
+                    action: 'getMarkdown',
+                    generateToc: tocToggle.checked
+                }, function(response) {
+                    if (chrome.runtime.lastError) {
+                        console.error('导出Markdown失败:', chrome.runtime.lastError);
+                        return;
+                    }
+                    
+                    if (response && response.markdown) {
+                        // 显示Markdown内容
+                        markdownOutput.value = response.markdown;
+                        markdownOutput.style.display = 'block';
+                        copyMarkdownButton.style.display = 'block';
+                        tocContainer.style.display = 'flex';
 
-    // 显示状态反馈
-    function showFeedback(element, message, isError = false) {
-        const originalStyle = element.style.backgroundColor;
-        element.style.backgroundColor = isError ? '#ff6b6b' : '#4CAF50';
-        element.textContent = message;
-        
-        setTimeout(() => {
-            element.style.backgroundColor = originalStyle;
-            element.textContent = element.dataset.originalText;
-        }, 2000);
-    }
-
-    // 初始化元素状态
-    function initializeElements() {
-        if (!sidebarToggle || !exportMarkdownButton || !markdownOutput || 
-            !copyMarkdownButton || !tocToggle || !tocContainer || !widthSlider || !optionRow) {
-            throw new Error('必需的DOM元素未找到');
-        }
-
-        // 保存原始文本用于状态恢复
-        document.querySelectorAll('button').forEach(button => {
-            button.dataset.originalText = button.textContent;
+                        // 显示复制成功反馈
+                        const button = exportMarkdownButton;
+                        const originalText = button.textContent;
+                        button.textContent = '转换成功！';
+                        setTimeout(() => {
+                            button.textContent = originalText;
+                        }, 2000);
+                    }
+                });
+            });
         });
     }
 
-    // 异步获取Markdown内容
-    async function getMarkdownContent(generateToc = false) {
-        const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-        if (!tab) throw new Error('未找到活动标签页');
-
-        const response = await chrome.tabs.sendMessage(tab.id, {
-            action: 'getMarkdown',
-            generateToc
+    // 目录开关事件监听
+    if (tocToggle) {
+        tocToggle.addEventListener('change', function() {
+            if (markdownOutput.style.display === 'block') {
+                chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+                    chrome.tabs.sendMessage(tabs[0].id, {
+                        action: 'getMarkdown',
+                        generateToc: tocToggle.checked
+                    }, function(response) {
+                        if (response && response.markdown) {
+                            markdownOutput.value = response.markdown;
+                        }
+                    });
+                });
+            }
         });
-
-        if (!response?.markdown) throw new Error('未收到Markdown内容');
-        return response.markdown;
     }
 
-    // 更新Markdown显示
-    async function updateMarkdownDisplay(generateToc = false, shouldShowFeedback = true) {
-        try {
-            const markdown = await getMarkdownContent(generateToc);
-            currentState.currentMarkdown = markdown;
-            markdownOutput.value = markdown;
-            if (shouldShowFeedback) {
-                showFeedback(exportMarkdownButton, '转换成功');
-            }
-        } catch (error) {
-            console.error('获取Markdown失败:', error);
-            if (shouldShowFeedback) {
-                showFeedback(exportMarkdownButton, '转换失败', true);
-            }
-        }
-    }
-
-    // 导出Markdown功能
-    exportMarkdownButton.addEventListener('click', async function() {
-        try {
-            await updateMarkdownDisplay(tocToggle.checked, true);
-            markdownOutput.style.display = 'block';
-            copyMarkdownButton.style.display = 'block';
-            tocContainer.style.display = 'flex';
-        } catch (error) {
-            console.error('导出Markdown失败:', error);
-            showFeedback(this, '转换失败', true);
-        }
-    });
-
-    // 监听目录开关
-    tocToggle.addEventListener('change', async function() {
-        if (markdownOutput.style.display === 'block') {
-            await updateMarkdownDisplay(this.checked, false);
-        }
-    });
-
-    // 监听侧边栏开关
-    sidebarToggle.addEventListener('change', async function() {
-        const newState = this.checked;
-        try {
-            const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-            if (!tab) throw new Error('未找到活动标签页');
-
-            await chrome.tabs.sendMessage(tab.id, {
-                action: 'toggleSidebar',
-                visible: newState
-            });
-
-            currentState.sidebarVisible = newState;
-        } catch (error) {
-            console.error('切换侧边栏失败:', error);
-            this.checked = currentState.sidebarVisible;
-            showFeedback(exportMarkdownButton, '切换失败', true);
-        }
-    });
-
-    // 监听宽度调节
-    const debouncedWidthAdjust = debounce(async (level) => {
-        if (currentState.isAdjustingWidth) return;
-        currentState.isAdjustingWidth = true;
-
-        try {
-            const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-            if (!tab) throw new Error('未找到活动标签页');
-
-            await chrome.tabs.sendMessage(tab.id, {
-                action: 'adjustWidth',
-                widthLevel: level
-            });
-
-            currentState.conversationWidth = level;
-        } catch (error) {
-            console.error('调整宽度失败:', error);
-            widthSlider.value = currentState.conversationWidth;
-            showFeedback(exportMarkdownButton, '调整失败', true);
-        } finally {
-            currentState.isAdjustingWidth = false;
-        }
-    }, 200);
-
-    widthSlider.addEventListener('input', function() {
-        const level = parseInt(this.value);
-        debouncedWidthAdjust(level);
-    });
-
-    // 复制Markdown内容
-    copyMarkdownButton.addEventListener('click', function() {
-        try {
+    // 复制按钮事件监听
+    if (copyMarkdownButton) {
+        copyMarkdownButton.addEventListener('click', function() {
             markdownOutput.select();
             document.execCommand('copy');
-            showFeedback(this, '复制成功！');
-        } catch (error) {
-            console.error('复制失败:', error);
-            showFeedback(this, '复制失败', true);
-        }
-    });
-
-    // 防抖函数
-    function debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    }
-
-    // 初始化
-    try {
-        initializeElements();
-        
-        // 获取当前标签页
-        const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-        if (!tab) throw new Error('未找到活动标签页');
-        
-        // 从content script获取实际状态
-        const response = await chrome.tabs.sendMessage(tab.id, {
-            action: 'getSettings'
-        });
-        
-        // 使用实际的状态更新UI和存储
-        if (response) {
-            sidebarToggle.checked = response.sidebarVisible;
-            currentState.sidebarVisible = response.sidebarVisible;
             
-            // 同步存储状态
-            chrome.storage.sync.set({ 
-                sidebarVisible: response.sidebarVisible 
-            });
-        }
-    } catch (error) {
-        console.error('初始化失败:', error);
-        showFeedback(exportMarkdownButton, '初始化失败', true);
+            const button = this;
+            const originalText = button.textContent;
+            button.textContent = '已复制！';
+            setTimeout(() => {
+                button.textContent = originalText;
+            }, 2000);
+        });
     }
 });

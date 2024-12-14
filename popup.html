@@ -152,11 +152,8 @@
         }
 
         .width-control {
-            margin-top: 8px;
-            background: white;
-            padding: 12px;
-            border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            flex: 1;
+            width: 100%;
         }
 
         .width-slider-container {
@@ -172,6 +169,7 @@
         }
 
         .width-slider {
+            width: 100%;
             position: relative;
             padding-bottom: 24px;
         }
@@ -315,6 +313,20 @@
             cursor: pointer;
             font-weight: 500;
         }
+
+        .width-control-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px;
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .width-control-group.hidden {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -329,8 +341,8 @@
             </label>
             <span class="switch-label">显示导航栏</span>
         </div>
-        <div class="option-row width-control">
-            <div class="width-slider-container">
+        <div class="option-row width-control-group" id="widthControlGroup">
+            <div class="width-control">
                 <span class="width-label">对话宽度：</span>
                 <div class="width-slider">
                     <input type="range" id="widthSlider" min="0" max="2" step="1" value="0">
