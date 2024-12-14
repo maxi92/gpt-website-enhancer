@@ -407,7 +407,7 @@ function updateSidebar() {
         });
     }
 
-    // 只有当内容真的变化时更新
+    // 只当内容真的变化时更新
     if (sidebarContent.innerHTML !== newHtml) {
         sidebarContent.innerHTML = newHtml;
         console.log('侧边栏更新完成');
@@ -441,6 +441,73 @@ function updateSidebar() {
             });
         });
     }
+}
+
+// 修改processCodeBlock函数,让它返回所有内容而不是立即返回代码块
+function processCodeBlock(node) {
+    console.log('处理节点:', node);
+    let content = '';
+    
+    // 如果当前节点是代码块
+    if (node.nodeName === 'PRE' && node.querySelector('.tongyi-design-highlighter')) {
+        console.log('找到代码块容器');
+        const highlighter = node.querySelector('.tongyi-design-highlighter');
+        const langElement = highlighter.querySelector('.tongyi-design-highlighter-lang');
+        const language = langElement ? langElement.textContent.toLowerCase() : '';
+        console.log('代码语言:', language);
+        
+        const codeElement = highlighter.querySelector('code');
+        if (codeElement) {
+            console.log('找到code元素');
+            let codeText = '';
+            let currentLine = '';
+            
+            // 遍历所有子节点，按行处理代码
+            Array.from(codeElement.childNodes).forEach(node => {
+                if (node.classList && node.classList.contains('linenumber')) {
+                    // 遇到行号，说明是新的一行
+                    if (currentLine) {
+                        codeText += currentLine + '\n';
+                        currentLine = '';
+                    }
+                } else {
+                    currentLine += node.textContent;
+                }
+            });
+            
+            // 添加最后一行
+            if (currentLine) {
+                codeText += currentLine;
+            }
+            
+            // 清理代码文本
+            codeText = codeText.trim();
+            console.log('处理后的代码:\n', codeText);
+            
+            return `\n\`\`\`${language}\n${codeText}\n\`\`\`\n\n`;
+        }
+    }
+    
+    // 处理普通文本节点
+    if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent.trim();
+        if (text) {
+            content += text;
+        }
+    }
+    
+    // 递归处理子节点
+    if (node.childNodes) {
+        for (const child of node.childNodes) {
+            // 如果当前节点或其父节点是代码块，跳过处理
+            if (child.closest && child.closest('.tongyi-design-highlighter')) {
+                continue;
+            }
+            content += processCodeBlock(child);
+        }
+    }
+    
+    return content;
 }
 
 // 将对话内容转换为Markdown
@@ -499,28 +566,46 @@ function convertToMarkdown(generateToc = false) {
                             content += node.textContent.trim() + '\n';
                         } else if (node.nodeName === 'P') {
                             content += node.textContent.trim() + '\n\n';
-                        } else if (node.nodeName === 'PRE') {
-                            const code = node.textContent.trim();
-                            const language = node.querySelector('code')?.className?.replace('language-', '') || '';
-                            content += '\n```' + language + '\n' + code + '\n```\n\n';
                         } else if (node.nodeName === 'OL' || node.nodeName === 'UL') {
                             node.querySelectorAll('li').forEach((li, i) => {
                                 const prefix = node.nodeName === 'OL' ? `${i + 1}.` : '-';
-                                content += `${prefix} ${li.textContent.trim()}\n`;
-                            });
-                            content += '\n';
-                        } else if (node.nodeName === 'TABLE') {
-                            const rows = node.querySelectorAll('tr');
-                            rows.forEach((row, i) => {
-                                const cells = Array.from(row.querySelectorAll('td, th'))
-                                    .map(cell => cell.textContent.trim())
-                                    .join(' | ');
-                                content += `| ${cells} |\n`;
-                                if (i === 0) {
-                                    content += '|' + ' --- |'.repeat(cells.split('|').length) + '\n';
+                                let itemContent = '';
+                                
+                                // 检查是否包含代码块
+                                const preElement = li.querySelector('pre');
+                                if (preElement && preElement.querySelector('.tongyi-design-highlighter')) {
+                                    // 先处理代码块前的文本
+                                    const textBefore = Array.from(li.childNodes)
+                                        .filter(node => node !== preElement)
+                                        .map(node => node.textContent.trim())
+                                        .filter(text => text)
+                                        .join(' ');
+                                    
+                                    if (textBefore) {
+                                        itemContent += textBefore + ' ';
+                                    }
+                                    
+                                    // 处理代码块
+                                    itemContent += processCodeBlock(preElement);
+                                } else {
+                                    itemContent = processCodeBlock(li);
+                                }
+                                
+                                if (itemContent.trim()) {
+                                    content += `${prefix} ${itemContent.trim()}\n`;
                                 }
                             });
                             content += '\n';
+                        } else {
+                            const preElement = node.querySelector('pre');
+                            if (preElement && preElement.querySelector('.tongyi-design-highlighter')) {
+                                content += processCodeBlock(preElement);
+                            } else {
+                                const nodeContent = processCodeBlock(node);
+                                if (nodeContent.trim()) {
+                                    content += nodeContent.trim() + '\n';
+                                }
+                            }
                         }
                     });
                     
@@ -576,6 +661,7 @@ function convertToMarkdown(generateToc = false) {
                     let content = '';
                     
                     markdownElement.childNodes.forEach(node => {
+                        console.log('当前节点:', node);
                         if (node.nodeType === Node.TEXT_NODE) {
                             content += node.textContent.trim() + '\n';
                         } else if (node.nodeName === 'P') {
@@ -727,7 +813,7 @@ async function adjustConversationWidth(level) {
 
 // 初始化宽度设置
 async function initializeWidthSettings() {
-    // 如果是通义千问页面，不初始化宽度设置
+    // 如果是通义千问页面，初始化宽度设置
     if (window.location.hostname.includes('tongyi.aliyun.com')) {
         console.log('通义千问页面不需要初始化宽度设置');
         return;
@@ -978,7 +1064,7 @@ if (chatContainer) {
     });
 }
 
-// 初始化插件
+// 初始化件
 async function init() {
     console.log('开始初始化插件');
     try {
