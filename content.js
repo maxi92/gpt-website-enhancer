@@ -568,8 +568,6 @@ async function adjustConversationWidth(level) {
         console.log('通义千问页面不需要调整对话宽度');
         return;
     }
-
-    console.log('调整宽度到级别:', level);
     
     const setting = WIDTH_SETTINGS[level];
     if (!setting) {
@@ -589,7 +587,6 @@ async function adjustConversationWidth(level) {
                 WIDTH_CLASS_PREFIXES.forEach(prefix => {
                     container.classList.forEach(cls => {
                         if (cls.startsWith(prefix)) {
-                            console.log('移除宽度类:', cls);
                             container.classList.remove(cls);
                         }
                     });
@@ -597,11 +594,9 @@ async function adjustConversationWidth(level) {
 
                 // 添加新的宽度类
                 setting.classes.forEach(cls => {
-                    console.log('添加宽度类:', cls);
                     container.classList.add(cls);
                 });
 
-                console.log('更新后类名:', container.className);
             });
 
             // 更新状态并保存
@@ -747,7 +742,7 @@ async function applySettings() {
     const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
     if (sidebar) {
         sidebar.style.display = isVisible ? 'flex' : 'none';
-        // 同���存储状态
+        // 同步存储状态
         chrome.storage.sync.set({ sidebarVisible: isVisible });
     }
 }
@@ -800,25 +795,67 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     if (request.action === 'getMarkdown') {
         try {
-            // 获取所有对话内容
-            const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
+            const hostname = window.location.hostname;
             let markdown = '';
+            let conversations = [];
             
-            conversations.forEach((conversation, index) => {
-                const userMessage = conversation.querySelector('[data-message-author-role="user"]');
-                const assistantMessage = conversation.querySelector('[data-message-author-role="assistant"]');
+            if (hostname.includes('chatgpt.com')) {
+                // ChatGPT页面的处理
+                const elements = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
+                elements.forEach((conversation, index) => {
+                    const userMessage = conversation.querySelector('[data-message-author-role="user"]');
+                    const assistantMessage = conversation.querySelector('[data-message-author-role="assistant"]');
+                    
+                    if (userMessage) {
+                        const userContent = userMessage.querySelector('.whitespace-pre-wrap')?.textContent?.trim() || '';
+                        conversations.push({
+                            index: Math.floor(index/2) + 1,
+                            title: userContent.length > 50 ? userContent.substring(0, 50) + '...' : userContent
+                        });
+                        
+                        markdown += `### 对话 ${Math.floor(index/2) + 1}\n\n`;
+                        markdown += '**Q:** ';
+                        markdown += convertElementToMarkdown(userMessage) + '\n\n';
+                    }
+                    if (assistantMessage) {
+                        markdown += '**A:** ';
+                        markdown += convertElementToMarkdown(assistantMessage) + '\n\n';
+                        markdown += '---\n\n';
+                    }
+                });
+            } else if (hostname.includes('tongyi.aliyun.com')) {
+                // 通义千问页面的处理
+                const questions = document.querySelectorAll('.questionItem--dS3Alcnv');
+                const answers = document.querySelectorAll('.answerItem--U4_Uv3iw');
                 
-                if (userMessage) {
-                    markdown += `### 对话 ${Math.floor(index/2) + 1}\n\n`;
-                    markdown += '**Q:** ';
-                    markdown += convertElementToMarkdown(userMessage) + '\n\n';
-                }
-                if (assistantMessage) {
-                    markdown += '**A:** ';
-                    markdown += convertElementToMarkdown(assistantMessage) + '\n\n';
-                    markdown += '---\n\n';
-                }
-            });
+                questions.forEach((question, index) => {
+                    const answer = answers[index];
+                    if (question && answer) {
+                        const questionContent = question.querySelector('.bubble--H3ZjjTnP')?.textContent?.trim() || '';
+                        conversations.push({
+                            index: index + 1,
+                            title: questionContent.length > 50 ? questionContent.substring(0, 50) + '...' : questionContent
+                        });
+                        
+                        markdown += `### 对话 ${index + 1}\n\n`;
+                        markdown += '**Q:** ';
+                        markdown += convertElementToMarkdown(question.querySelector('.bubble--H3ZjjTnP')) + '\n\n';
+                        markdown += '**A:** ';
+                        markdown += convertElementToMarkdown(answer.querySelector('.tongyi-markdown')) + '\n\n';
+                        markdown += '---\n\n';
+                    }
+                });
+            }
+            
+            // 如果需要生成目录，在最前面添加目录
+            if (request.generateToc) {
+                let toc = '## 目录\n\n';
+                conversations.forEach(conv => {
+                    toc += `- [对话 ${conv.index}](#对话-${conv.index}) - ${conv.title}\n`;
+                });
+                toc += '\n---\n\n';
+                markdown = toc + markdown;
+            }
             
             sendResponse({ markdown: markdown.trim() });
         } catch (error) {
