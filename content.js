@@ -241,7 +241,7 @@ const SITE_CONFIGS = {
 // 获取当前网站的配置
 function getCurrentSiteConfig() {
     const hostname = window.location.hostname;
-    if (hostname.includes('chat.openai.com')) {
+    if (hostname.includes('chatgpt.com')) {
         return SITE_CONFIGS.chatgpt;
     } else if (hostname.includes('tongyi.aliyun.com')) {
         return SITE_CONFIGS.tongyi;
@@ -415,290 +415,97 @@ function updateSidebar() {
         // 添加点击事件处理
         const groups = sidebarContent.querySelectorAll('.conversation-group');
         groups.forEach(group => {
-            group.addEventListener('click', (event) => {
-                const checkbox = event.target.closest('.conversation-checkbox');
-                const isMultiSelect = document.getElementById('ai-chat-enhancer-sidebar').classList.contains('multi-select-mode');
-                
-                if (checkbox) {
-                    event.stopPropagation();
-                    updateCopyButtonState();
-                } else if (isMultiSelect) {
-                    const groupCheckbox = group.querySelector('.conversation-checkbox');
-                    if (groupCheckbox) {
-                        groupCheckbox.checked = !groupCheckbox.checked;
-                        updateCopyButtonState();
-                    }
-                } else {
-                    const index = parseInt(group.dataset.index);
-                    if (hostname.includes('chat.openai.com')) {
-                        const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
-                        conversations[index * 2]?.scrollIntoView({ behavior: 'smooth' });
-                    } else if (hostname.includes('tongyi.aliyun.com')) {
-                        const questions = document.querySelectorAll('.questionItem--dS3Alcnv');
-                        questions[index]?.scrollIntoView({ behavior: 'smooth' });
-                    }
-                }
-            });
+            group.addEventListener('click', handleConversationClick);
         });
     }
 }
 
-// 修改processCodeBlock函数,让它返回所有内容而不是立即返回代码块
-function processCodeBlock(node) {
-    console.log('处理节点:', node);
-    let content = '';
-    
-    // 如果当前节点是代码块
-    if (node.nodeName === 'PRE' && node.querySelector('.tongyi-design-highlighter')) {
-        console.log('找到代码块容器');
-        const highlighter = node.querySelector('.tongyi-design-highlighter');
-        const langElement = highlighter.querySelector('.tongyi-design-highlighter-lang');
-        const language = langElement ? langElement.textContent.toLowerCase() : '';
-        console.log('代码语言:', language);
-        
-        const codeElement = highlighter.querySelector('code');
-        if (codeElement) {
-            console.log('找到code元素');
-            let codeText = '';
-            let currentLine = '';
-            
-            // 遍历所有子节点，按行处理代码
-            Array.from(codeElement.childNodes).forEach(node => {
-                if (node.classList && node.classList.contains('linenumber')) {
-                    // 遇到行号，说明是新的一行
-                    if (currentLine) {
-                        codeText += currentLine + '\n';
-                        currentLine = '';
-                    }
-                } else {
-                    currentLine += node.textContent;
-                }
-            });
-            
-            // 添加最后一行
-            if (currentLine) {
-                codeText += currentLine;
-            }
-            
-            // 清理代码文本
-            codeText = codeText.trim();
-            console.log('处理后的代码:\n', codeText);
-            
-            return `\n\`\`\`${language}\n${codeText}\n\`\`\`\n\n`;
-        }
+// 修改转换为 markdown 的函数
+function convertToMarkdown(element) {
+    // 如果没有传入 element，直接返回空字符串
+    if (!element) {
+        console.warn('convertToMarkdown: No element provided');
+        return '';
     }
     
-    // 处理普通文本节点
-    if (node.nodeType === Node.TEXT_NODE) {
-        const text = node.textContent.trim();
-        if (text) {
-            content += text;
-        }
-    }
-    
-    // 递归处理子节点
-    if (node.childNodes) {
-        for (const child of node.childNodes) {
-            // 如果当前节点或其父节点是代码块，跳过处理
-            if (child.closest && child.closest('.tongyi-design-highlighter')) {
-                continue;
-            }
-            content += processCodeBlock(child);
-        }
-    }
-    
-    return content;
+    return convertElementToMarkdown(element);
 }
 
-// 将对话内容转换为Markdown
-function convertToMarkdown(generateToc = false) {
-    console.log('开始转换Markdown, 是否生成目录:', generateToc);
+// 新增辅助函数处理单个素的转换
+function convertElementToMarkdown(element) {
+    if (!element) return '';
+    
     let markdown = '';
     
-    // 检查当前网站类型
-    const isTongyi = window.location.href.includes('tongyi.aliyun.com/qianwen');
+    // 遍历所有子元素
+    element.childNodes.forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE) {
+            markdown += node.textContent;
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+            // 处理代码块
+            if (node.classList?.contains('!overflow-visible') || 
+                node.tagName === 'PRE') {
+                // 移除代码块前后可能存在的多余换行
+                markdown = markdown.trimEnd();
+                markdown += processCodeBlock(node);
+            }
+            // 处理其他元素
+            else {
+                markdown += convertElementToMarkdown(node);
+            }
+        }
+    });
     
-    if (isTongyi) {
-        // 通义千问的对话处理
-        const conversations = document.querySelectorAll('.questionItem--dS3Alcnv, .answerItem--U4_Uv3iw');
-        console.log(`找到 ${conversations.length} 条通义千问对话`);
-        
-        // 如果需要生成目录，先收集所有问题
-        if (generateToc) {
-            const questions = [];
-            conversations.forEach((conv) => {
-                if (conv.classList.contains('questionItem--dS3Alcnv')) {
-                    const content = conv.querySelector('.bubble--H3ZjjTnP')?.textContent?.trim() || '';
-                    if (content) {
-                        questions.push(content);
-                    }
-                }
-            });
-            
-            if (questions.length > 0) {
-                markdown += '## 目录\n\n';
-                questions.forEach((question, index) => {
-                    const shortQuestion = question.length > 30 ? question.substring(0, 30) + '...' : question;
-                    markdown += `${index + 1}. [${shortQuestion}](#问题-${index + 1})\n`;
-                });
-                markdown += '\n---\n\n';
-            }
-        }
-        
-        // 计数器，用于生成问题的锚点
-        let questionCount = 0;
-        
-        // 转换对话内容
-        conversations.forEach((conv) => {
-            if (conv.classList.contains('questionItem--dS3Alcnv')) {
-                questionCount++;
-                const content = conv.querySelector('.bubble--H3ZjjTnP')?.textContent?.trim() || '';
-                markdown += generateToc ? 
-                    `\n### 问题 ${questionCount}\n\n${content}\n` :
-                    `\n### 用户\n\n${content}\n`;
-            } else if (conv.classList.contains('answerItem--U4_Uv3iw')) {
-                const markdownElement = conv.querySelector('.tongyi-markdown');
-                if (markdownElement) {
-                    let content = '';
-                    
-                    markdownElement.childNodes.forEach(node => {
-                        if (node.nodeType === Node.TEXT_NODE) {
-                            content += node.textContent.trim() + '\n';
-                        } else if (node.nodeName === 'P') {
-                            content += node.textContent.trim() + '\n\n';
-                        } else if (node.nodeName === 'OL' || node.nodeName === 'UL') {
-                            node.querySelectorAll('li').forEach((li, i) => {
-                                const prefix = node.nodeName === 'OL' ? `${i + 1}.` : '-';
-                                let itemContent = '';
-                                
-                                // 检查是否包含代码块
-                                const preElement = li.querySelector('pre');
-                                if (preElement && preElement.querySelector('.tongyi-design-highlighter')) {
-                                    // 先处理代码块前的文本
-                                    const textBefore = Array.from(li.childNodes)
-                                        .filter(node => node !== preElement)
-                                        .map(node => node.textContent.trim())
-                                        .filter(text => text)
-                                        .join(' ');
-                                    
-                                    if (textBefore) {
-                                        itemContent += textBefore + ' ';
-                                    }
-                                    
-                                    // 处理代码块
-                                    itemContent += processCodeBlock(preElement);
-                                } else {
-                                    itemContent = processCodeBlock(li);
-                                }
-                                
-                                if (itemContent.trim()) {
-                                    content += `${prefix} ${itemContent.trim()}\n`;
-                                }
-                            });
-                            content += '\n';
-                        } else {
-                            const preElement = node.querySelector('pre');
-                            if (preElement && preElement.querySelector('.tongyi-design-highlighter')) {
-                                content += processCodeBlock(preElement);
-                            } else {
-                                const nodeContent = processCodeBlock(node);
-                                if (nodeContent.trim()) {
-                                    content += nodeContent.trim() + '\n';
-                                }
-                            }
-                        }
-                    });
-                    
-                    markdown += `\n### 通义千问\n\n${content}`;
-                }
-            }
-        });
-    } else {
-        // ChatGPT的对话处理
-        const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
-        console.log(`找到 ${conversations.length} 条对话`);
-        
-        // 如果需要生成目录，先收集所有题
-        if (generateToc) {
-            const questions = [];
-            conversations.forEach((conv) => {
-                const isUser = conv.querySelector('[data-message-author-role="user"]');
-                if (isUser) {
-                    const content = conv.querySelector('.whitespace-pre-wrap')?.textContent?.trim() || '';
-                    if (content) {
-                        questions.push(content);
-                    }
-                }
-            });
-            
-            if (questions.length > 0) {
-                markdown += '## 目录\n\n';
-                questions.forEach((question, index) => {
-                    const shortQuestion = question.length > 30 ? question.substring(0, 30) + '...' : question;
-                    markdown += `${index + 1}. [${shortQuestion}](#问题-${index + 1})\n`;
-                });
-                markdown += '\n---\n\n';
-            }
-        }
-        
-        // 计数器，用于生成问题的锚点
-        let questionCount = 0;
-        
-        // 转换对话内容
-        conversations.forEach((conv) => {
-            const isUser = conv.querySelector('[data-message-author-role="user"]');
-            const isAssistant = conv.querySelector('[data-message-author-role="assistant"]');
-            
-            if (isUser) {
-                questionCount++;
-                const content = conv.querySelector('.whitespace-pre-wrap')?.textContent?.trim() || '';
-                markdown += generateToc ? 
-                    `\n### 问题 ${questionCount}\n\n${content}\n` :
-                    `\n### 用户\n\n${content}\n`;
-            } else if (isAssistant) {
-                const markdownElement = conv.querySelector('.markdown');
-                if (markdownElement) {
-                    let content = '';
-                    
-                    markdownElement.childNodes.forEach(node => {
-                        console.log('当前节点:', node);
-                        if (node.nodeType === Node.TEXT_NODE) {
-                            content += node.textContent.trim() + '\n';
-                        } else if (node.nodeName === 'P') {
-                            content += node.textContent.trim() + '\n\n';
-                        } else if (node.nodeName === 'PRE') {
-                            const code = node.textContent.trim();
-                            const language = node.querySelector('code')?.className?.replace('language-', '') || '';
-                            content += '\n```' + language + '\n' + code + '\n```\n\n';
-                        } else if (node.nodeName === 'OL' || node.nodeName === 'UL') {
-                            node.querySelectorAll('li').forEach((li, i) => {
-                                const prefix = node.nodeName === 'OL' ? `${i + 1}.` : '-';
-                                content += `${prefix} ${li.textContent.trim()}\n`;
-                            });
-                            content += '\n';
-                        } else if (node.nodeName === 'TABLE') {
-                            const rows = node.querySelectorAll('tr');
-                            rows.forEach((row, i) => {
-                                const cells = Array.from(row.querySelectorAll('td, th'))
-                                    .map(cell => cell.textContent.trim())
-                                    .join(' | ');
-                                content += `| ${cells} |\n`;
-                                if (i === 0) {
-                                    content += '|' + ' --- |'.repeat(cells.split('|').length) + '\n';
-                                }
-                            });
-                            content += '\n';
-                        }
-                    });
-                    
-                    markdown += `\n### ChatGPT\n\n${content}`;
-                }
-            }
-        });
+    return markdown;
+}
+
+// 修改代码块处理函数
+function processCodeBlock(codeBlock) {
+    if (!codeBlock) return '';
+    
+    // 获取代码语言
+    const langDiv = codeBlock.querySelector('.flex.items-center.text-token-text-secondary');
+    const language = langDiv ? langDiv.textContent.trim() : '';
+    
+    // 直接获取 code 标签中的内容
+    const codeContent = codeBlock.querySelector('code');
+    let codeText = '';
+    if (codeContent) {
+        // 获取原始文本内容，移除多余的按钮和式标签
+        codeText = codeContent.textContent.trim();
     }
     
-    console.log('Markdown转换完成');
-    return markdown.trim();
+    // 返回格式化后的 markdown 代码块，确保前后都有换行
+    return `\n\`\`\`${language}\n${codeText}\n\`\`\`\n`;
+}
+
+// 修改复制选中内容的函数
+function copySelectedConversations() {
+    const selectedGroups = document.querySelectorAll('.conversation-group .conversation-checkbox:checked');
+    let markdown = '';
+    
+    selectedGroups.forEach(checkbox => {
+        const group = checkbox.closest('.conversation-group');
+        const items = group.querySelectorAll('.conversation-item');
+        
+        items.forEach(item => {
+            const isUser = item.classList.contains('user');
+            const prefix = isUser ? '**Q:**' : '**A:**';
+            
+            // 获取对应的原始对话内容
+            const index = parseInt(group.dataset.index);
+            const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
+            const originalMessage = conversations[index * 2 + (isUser ? 0 : 1)];
+            
+            if (originalMessage) {
+                const content = convertElementToMarkdown(originalMessage);
+                markdown += `${prefix} ${content}\n\n`;
+            }
+        });
+    });
+    
+    navigator.clipboard.writeText(markdown);
+    showCopySuccess();
 }
 
 // 存储当前宽度设置
@@ -940,7 +747,7 @@ async function applySettings() {
     const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
     if (sidebar) {
         sidebar.style.display = isVisible ? 'flex' : 'none';
-        // 同步存储状态
+        // 同���存储状态
         chrome.storage.sync.set({ sidebarVisible: isVisible });
     }
 }
@@ -993,8 +800,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     if (request.action === 'getMarkdown') {
         try {
-            const markdown = convertToMarkdown(request.generateToc);
-            sendResponse({ markdown });
+            // 获取所有对话内容
+            const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
+            let markdown = '';
+            
+            conversations.forEach((conversation, index) => {
+                const userMessage = conversation.querySelector('[data-message-author-role="user"]');
+                const assistantMessage = conversation.querySelector('[data-message-author-role="assistant"]');
+                
+                if (userMessage) {
+                    markdown += `### 对话 ${Math.floor(index/2) + 1}\n\n`;
+                    markdown += '**Q:** ';
+                    markdown += convertElementToMarkdown(userMessage) + '\n\n';
+                }
+                if (assistantMessage) {
+                    markdown += '**A:** ';
+                    markdown += convertElementToMarkdown(assistantMessage) + '\n\n';
+                    markdown += '---\n\n';
+                }
+            });
+            
+            sendResponse({ markdown: markdown.trim() });
         } catch (error) {
             console.error('转换Markdown失败:', error);
             sendResponse({ error: error.message });
@@ -1124,7 +950,7 @@ async function init() {
         
         const updateInterval = setInterval(() => {
             const hostname = window.location.hostname;
-            if (hostname.includes('chat.openai.com')) {
+            if (hostname.includes('chatgpt.com')) {
                 const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
                 if (conversations.length > 0) {
                     console.log('ChatGPT对话已加载，更新导航栏');
@@ -1185,4 +1011,140 @@ function getFullConversationContent(questionElement, answerElement) {
     }
 
     return { question, answer };
+}
+
+// 修改点击事件处理函数
+function handleConversationClick(event) {
+    console.log('点击事件触发');
+    const checkbox = event.target.closest('.conversation-checkbox');
+    const group = event.target.closest('.conversation-group');
+    
+    console.log('点击元素信息:', {
+        isCheckbox: !!checkbox,
+        hasGroup: !!group,
+        targetElement: event.target.tagName,
+        targetClass: event.target.className
+    });
+    
+    if (!group) {
+        console.log('未找到conversation-group元素，退出处理');
+        return;
+    }
+    
+    const isMultiSelect = document.getElementById('ai-chat-enhancer-sidebar').classList.contains('multi-select-mode');
+    console.log('是否多选模式:', isMultiSelect);
+    
+    // 处理复选框点击
+    if (checkbox) {
+        console.log('处理复选框点击');
+        event.stopPropagation();
+        updateCopyButtonState();
+        return;
+    }
+    
+    // 处理多选模式
+    if (isMultiSelect) {
+        console.log('处理多选模式点击');
+        const groupCheckbox = group.querySelector('.conversation-checkbox');
+        if (groupCheckbox) {
+            groupCheckbox.checked = !groupCheckbox.checked;
+            updateCopyButtonState();
+        }
+        return;
+    }
+    
+    // 处理导航点击
+    const index = parseInt(group.dataset.index);
+    const hostname = window.location.hostname;
+    console.log('处理导航点击:', {
+        index: index,
+        hostname: hostname
+    });
+    
+    if (hostname.includes('chatgpt.com')) {
+        try {
+            // 使用新的选择器来查找对话元素
+            console.log('开始查找ChatGPT对话元素');
+            const mainContainer = document.querySelector('main');
+            if (!mainContainer) {
+                console.error('未找到main容器');
+                return;
+            }
+            console.log('找到main容器:', mainContainer.tagName);
+            
+            const conversations = Array.from(mainContainer.querySelectorAll('div[data-testid^="conversation-turn-"]'));
+            console.log('找到原始对话元素数量:', conversations.length);
+            if (conversations.length === 0) {
+                // 尝试其他选择器
+                const altConversations = Array.from(mainContainer.querySelectorAll('.group\\/conversation-turn'));
+                console.log('使用备用选择器找到对话元素数量:', altConversations.length);
+                if (altConversations.length > 0) {
+                    conversations.push(...altConversations);
+                }
+            }
+            
+            // 打印每个对话元素的关键属性
+            conversations.forEach((conv, i) => {
+                console.log(`对话元素 ${i}:`, {
+                    'data-testid': conv.getAttribute('data-testid'),
+                    'class': conv.className,
+                    'hasUserMessage': !!conv.querySelector('[data-message-author-role="user"]'),
+                    'hasAssistantMessage': !!conv.querySelector('[data-message-author-role="assistant"]')
+                });
+            });
+            
+            // 过滤出实际的对话组
+            const conversationGroups = [];
+            for (let i = 0; i < conversations.length; i++) {
+                const current = conversations[i];
+                const userMessage = current.querySelector('[data-message-author-role="user"]');
+                if (userMessage) {
+                    console.log(`找到用户消息 ${conversationGroups.length}:`, {
+                        text: userMessage.textContent.substring(0, 50) + '...'
+                    });
+                    conversationGroups.push(current);
+                }
+            }
+            
+            console.log('过滤后的对话组数量:', conversationGroups.length, '目标索引:', index);
+            
+            // 获取目标对话
+            const targetConversation = conversationGroups[index];
+            if (targetConversation) {
+                console.log('找到目标对话元素:', {
+                    'data-testid': targetConversation.getAttribute('data-testid'),
+                    'class': targetConversation.className,
+                    'position': targetConversation.getBoundingClientRect()
+                });
+                
+                // 滚动到目标位置
+                targetConversation.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center' 
+                });
+                
+                // 添加高亮效果
+                targetConversation.style.backgroundColor = 'rgba(0, 0, 0, 0.05)';
+                setTimeout(() => {
+                    targetConversation.style.backgroundColor = '';
+                }, 2000);
+                
+                console.log('滚动和高亮处理完成');
+            } else {
+                console.error('未找到目标对话元素，可能的原因：', {
+                    '总对话数': conversations.length,
+                    '过滤后对话数': conversationGroups.length,
+                    '请求的索引': index
+                });
+            }
+        } catch (error) {
+            console.error('处理ChatGPT对话时发生错误:', error);
+        }
+    } else if (hostname.includes('tongyi.aliyun.com')) {
+        const questions = document.querySelectorAll('.questionItem--dS3Alcnv');
+        const targetQuestion = questions[index];
+        if (targetQuestion) {
+            targetQuestion.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
 }
