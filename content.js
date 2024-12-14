@@ -24,13 +24,18 @@ function createSidebar() {
     let isResizing = false;
     let startX;
     let startWidth;
+    let currentWidth;
+    let animationFrameId;
 
     // 添加防止文字选中的样式
+    const noSelectStyle = document.createElement('style');
+    noSelectStyle.id = 'no-select-style';
+    noSelectStyle.textContent = 'body.resizing * { user-select: none !important; }';
+
     function addNoSelectStyle() {
-        const style = document.createElement('style');
-        style.id = 'no-select-style';
-        style.textContent = 'body.resizing * { user-select: none !important; }';
-        document.head.appendChild(style);
+        if (!document.getElementById('no-select-style')) {
+            document.head.appendChild(noSelectStyle);
+        }
     }
 
     function removeNoSelectStyle() {
@@ -40,37 +45,65 @@ function createSidebar() {
         }
     }
 
-    resizer.addEventListener('mousedown', (e) => {
-        isResizing = true;
-        startX = e.pageX;
-        startWidth = parseInt(getComputedStyle(sidebar).width, 10);
+    function updateSidebarWidth() {
+        if (!isResizing) return;
         
-        document.body.classList.add('resizing');
-        addNoSelectStyle();
-
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', () => {
-            isResizing = false;
-            document.body.classList.remove('resizing');
-            removeNoSelectStyle();
-            document.removeEventListener('mousemove', handleMouseMove);
-            
-            // 保存当前宽度到存储
-            const currentWidth = parseInt(sidebar.style.width);
-            chrome.storage.sync.set({ sidebarWidth: currentWidth });
-        }, { once: true });
-    });
+        if (currentWidth >= 240 && currentWidth <= 600) {
+            sidebar.style.width = `${currentWidth}px`;
+        }
+        animationFrameId = requestAnimationFrame(updateSidebarWidth);
+    }
 
     function handleMouseMove(e) {
         if (!isResizing) return;
         
-        const width = startWidth - (e.pageX - startX);
-        if (width >= 240 && width <= 600) {  // 限制最小和最大宽度
-            sidebar.style.width = `${width}px`;
+        // 计算新宽度
+        currentWidth = startWidth - (e.pageX - startX);
+        
+        // 如果没有正在运行的动画帧，启动一个
+        if (!animationFrameId) {
+            animationFrameId = requestAnimationFrame(updateSidebarWidth);
         }
     }
+
+    function handleMouseUp() {
+        if (!isResizing) return;
+        
+        isResizing = false;
+        document.body.classList.remove('resizing');
+        removeNoSelectStyle();
+        
+        // 清除事件监听
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        
+        // 取消任何待处理的动画帧
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+        }
+        
+        // 保存最终宽度到存储
+        // 使用防抖来避免频繁存储
+        if (currentWidth >= 240 && currentWidth <= 600) {
+            chrome.storage.sync.set({ sidebarWidth: currentWidth });
+        }
+    }
+
+    resizer.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        startX = e.pageX;
+        startWidth = parseInt(getComputedStyle(sidebar).width, 10);
+        currentWidth = startWidth;
+        
+        document.body.classList.add('resizing');
+        addNoSelectStyle();
+
+        document.addEventListener('mousemove', handleMouseMove, { passive: true });
+        document.addEventListener('mouseup', handleMouseUp, { once: true });
+    });
     
-    // ��加多选按钮事件监听
+    // 添加多选按钮事件监听
     const multiSelectButton = sidebar.querySelector('#multiSelect');
     const copySelectedButton = sidebar.querySelector('#copySelected');
     
@@ -288,7 +321,7 @@ function updateSidebar() {
         const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
         console.log(`找到 ${conversations.length} 条ChatGPT对话`);
         
-        // 将对话按组配对
+        // 将对话按组配���
         const groups = [];
         for (let i = 0; i < conversations.length; i += 2) {
             if (i + 1 < conversations.length) {
@@ -617,7 +650,7 @@ function findConversationContainers() {
     const containers = document.querySelectorAll(SELECTORS.CONVERSATION_CONTAINER);
     console.log('找到对话容器数量:', containers.length);
     if (containers.length > 0) {
-        console.log('对话容器当前类名:', containers[0].className);
+        console.log('对话容器当前类��:', containers[0].className);
     }
     return containers;
 }
