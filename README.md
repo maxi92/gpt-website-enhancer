@@ -1,6 +1,6 @@
-# AI Chat Enhancer
+# GPT website enhancer
 
-AI Chat Enhancer 是一个浏览器扩展程序，为 ChatGPT 和通义千问等AI聊天网站提供增强功能。
+GPT website enhancer 是一个浏览器扩展程序，为 ChatGPT 和通义千问等AI聊天网站提供增强功能。
 
 ## 主要功能
 
