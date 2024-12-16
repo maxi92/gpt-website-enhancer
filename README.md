@@ -23,7 +23,7 @@ GPT website enhancer 是一个浏览器扩展程序，为 ChatGPT 和通义千�
 - 在所有页面保持一致的宽度设置
 
 ## 支持的网站
-- ChatGPT (https://chatgpt.com/c/*)
+- ChatGPT (https://chatgpt.com/*)
 - 通义千问 (https://tongyi.aliyun.com/qianwen/*)
 
 ## 安装方法

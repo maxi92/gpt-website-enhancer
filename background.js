@@ -7,7 +7,7 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     // 检查URL是否匹配支持的网站
     const supportedUrls = [
-        'https://chat.openai.com/*',
+        'https://chatgpt.com/*',
         'https://qianwen.aliyun.com/*'
     ];
 
