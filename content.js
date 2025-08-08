@@ -1100,53 +1100,26 @@ function handleConversationClick(event) {
     
     if (hostname.includes('chatgpt.com')) {
         try {
-            // 使用新的选择器来查找对话元素
+            // 使用更准确的选择器来查找对话元素
             console.log('开始查找ChatGPT对话元素');
-            const mainContainer = document.querySelector('main');
-            if (!mainContainer) {
-                console.error('未找到main容器');
-                return;
-            }
-            console.log('找到main容器:', mainContainer.tagName);
             
-            const conversations = Array.from(mainContainer.querySelectorAll('div[data-testid^="conversation-turn-"]'));
-            console.log('找到原始对话元素数量:', conversations.length);
-            if (conversations.length === 0) {
-                // 尝试其他选择器
-                const altConversations = Array.from(mainContainer.querySelectorAll('.group\\/conversation-turn'));
-                console.log('使用备用选择器找到对话元素数量:', altConversations.length);
-                if (altConversations.length > 0) {
-                    conversations.push(...altConversations);
+            // 查找所有对话容器，使用更精确的选择器
+            const conversationContainers = Array.from(document.querySelectorAll('[data-testid^="conversation-turn-"]'));
+            console.log('找到对话容器数量:', conversationContainers.length);
+            
+            // 过滤出用户消息的容器（奇数索引）
+            const userMessageContainers = [];
+            for (let i = 0; i < conversationContainers.length; i += 2) {
+                const userContainer = conversationContainers[i];
+                if (userContainer && userContainer.querySelector('[data-message-author-role="user"]')) {
+                    userMessageContainers.push(userContainer);
                 }
             }
             
-            // 打印每个对话元素的关键属性
-            conversations.forEach((conv, i) => {
-                console.log(`对话元素 ${i}:`, {
-                    'data-testid': conv.getAttribute('data-testid'),
-                    'class': conv.className,
-                    'hasUserMessage': !!conv.querySelector('[data-message-author-role="user"]'),
-                    'hasAssistantMessage': !!conv.querySelector('[data-message-author-role="assistant"]')
-                });
-            });
-            
-            // 过滤出实际的对话组
-            const conversationGroups = [];
-            for (let i = 0; i < conversations.length; i++) {
-                const current = conversations[i];
-                const userMessage = current.querySelector('[data-message-author-role="user"]');
-                if (userMessage) {
-                    console.log(`找到用户消息 ${conversationGroups.length}:`, {
-                        text: userMessage.textContent.substring(0, 50) + '...'
-                    });
-                    conversationGroups.push(current);
-                }
-            }
-            
-            console.log('过滤后的对话组数量:', conversationGroups.length, '目标索引:', index);
+            console.log('用户消息容器数量:', userMessageContainers.length, '目标索引:', index);
             
             // 获取目标对话
-            const targetConversation = conversationGroups[index];
+            const targetConversation = userMessageContainers[index];
             if (targetConversation) {
                 console.log('找到目标对话元素:', {
                     'data-testid': targetConversation.getAttribute('data-testid'),
@@ -1161,17 +1134,24 @@ function handleConversationClick(event) {
                 });
                 
                 // 添加高亮效果
-                targetConversation.style.backgroundColor = 'rgba(0, 0, 0, 0.05)';
+                targetConversation.classList.add('highlight');
                 setTimeout(() => {
-                    targetConversation.style.backgroundColor = '';
+                    targetConversation.classList.remove('highlight');
                 }, 2000);
                 
                 console.log('滚动和高亮处理完成');
             } else {
                 console.error('未找到目标对话元素，可能的原因：', {
-                    '总对话数': conversations.length,
-                    '过滤后对话数': conversationGroups.length,
+                    '总对话数': conversationContainers.length,
+                    '用户消息数': userMessageContainers.length,
                     '请求的索引': index
+                });
+                
+                // 备用方案：尝试直接滚动到页面顶部附近的位置
+                const estimatedPosition = index * 300; // 估算每个对话大约300px高度
+                window.scrollTo({
+                    top: estimatedPosition,
+                    behavior: 'smooth'
                 });
             }
         } catch (error) {

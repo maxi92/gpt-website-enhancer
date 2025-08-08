@@ -23,7 +23,7 @@
     {
       "matches": [
         "https://chatgpt.com/*",
-        "https://tongyi.aliyun.com/qianwen/*"
+        "https://tongyi.aliyun.com/*"
       ],
       "js": ["content.js"],
       "css": ["styles.css"],

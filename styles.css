@@ -119,10 +119,20 @@
     border-bottom: 1px solid #e8f0fe;
     cursor: pointer;
     transition: background 0.2s ease;
+    position: relative;
 }
 
 .conversation-item:hover {
     background: #f1f3f4;
+}
+
+.conversation-item.highlight {
+    animation: highlightAnimation 2s ease;
+}
+
+@keyframes highlightAnimation {
+    0% { background-color: rgba(255, 255, 0, 0.5); }
+    100% { background-color: transparent; }
 }
 
 .conversation-item:last-child {
