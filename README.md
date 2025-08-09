@@ -24,7 +24,7 @@ GPT website enhancer 是一个浏览器扩展程序，为 ChatGPT 和通义千�
 
 ## 支持的网站
 - ChatGPT (https://chatgpt.com/*)
-- 通义千问 (https://tongyi.aliyun.com/qianwen/*)
+- 通义千问 (https://www.tongyi.com/qianwen/*)
 
 ## 安装方法
 

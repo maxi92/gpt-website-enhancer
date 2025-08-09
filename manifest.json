@@ -9,7 +9,7 @@
   ],
   "host_permissions": [
     "https://chatgpt.com/*",
-    "https://tongyi.aliyun.com/*"
+    "https://www.tongyi.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -23,7 +23,7 @@
     {
       "matches": [
         "https://chatgpt.com/*",
-        "https://tongyi.aliyun.com/*"
+        "https://www.tongyi.com/*"
       ],
       "js": ["content.js"],
       "css": ["styles.css"],

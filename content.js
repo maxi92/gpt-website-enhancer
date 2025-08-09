@@ -139,7 +139,7 @@ function createSidebar() {
                 const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
                 questionElement = conversations[index * 2];
                 answerElement = conversations[index * 2 + 1];
-            } else if (hostname.includes('tongyi.aliyun.com')) {
+            } else if (hostname.includes('www.tongyi.com')) {
                 const questions = document.querySelectorAll('.questionItem--dS3Alcnv');
                 const answers = document.querySelectorAll('.answerItem--U4_Uv3iw');
                 questionElement = questions[index];
@@ -243,7 +243,7 @@ function getCurrentSiteConfig() {
     const hostname = window.location.hostname;
     if (hostname.includes('chatgpt.com')) {
         return SITE_CONFIGS.chatgpt;
-    } else if (hostname.includes('tongyi.aliyun.com')) {
+    } else if (hostname.includes('www.tongyi.com')) {
         return SITE_CONFIGS.tongyi;
     }
     return null;
@@ -316,7 +316,7 @@ function updateSidebar() {
     const hostname = window.location.hostname;
     let newHtml = '';
 
-    // ChatGPT页面的处理
+        // ChatGPT页面的处理
     if (hostname.includes('chatgpt.com')) {
         const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
         console.log(`找到 ${conversations.length} 条ChatGPT对话`);
@@ -325,22 +325,29 @@ function updateSidebar() {
         const groups = [];
         for (let i = 0; i < conversations.length; i += 2) {
             if (i + 1 < conversations.length) {
-                groups.push([conversations[i], conversations[i + 1]]);
+                    groups.push([conversations[i], conversations[i + 1]]);
             } else {
-                groups.push([conversations[i]]);
+                    groups.push([conversations[i]]);
             }
         }
         
-        groups.forEach((group, index) => {
-            const userMessage = group[0].querySelector('[data-message-author-role="user"]');
-            const assistantMessage = group[1]?.querySelector('[data-message-author-role="assistant"]');
+            groups.forEach((groupNodes, index) => {
+                const groupUserNode = groupNodes[0];
+                const userMessage = groupUserNode.querySelector('[data-message-author-role="user"]') || groupUserNode; // 回退使用整个容器
+                const assistantMessage = groupNodes[1]?.querySelector('[data-message-author-role="assistant"]') || groupNodes[1];
             
             if (userMessage) {
-                const userContent = userMessage.querySelector('.whitespace-pre-wrap')?.textContent?.trim() || '空内容';
-                const assistantContent = assistantMessage?.querySelector('.markdown')?.textContent?.trim() || '等待回复...';
+                    const userContent = userMessage.querySelector?.('.whitespace-pre-wrap')?.textContent?.trim() || userMessage.textContent?.trim() || '空内容';
+                    const assistantContent = assistantMessage?.querySelector?.('.markdown')?.textContent?.trim() || assistantMessage?.textContent?.trim() || '等待回复...';
+
+                    // 为页面中的原始元素打上可定位的锚点属性
+                    const targetId = groupUserNode.getAttribute('data-ai-enhancer-target-id') || `ai-enhancer-target-${index}`;
+                    try {
+                        groupUserNode.setAttribute('data-ai-enhancer-target-id', targetId);
+                    } catch (_) {}
                 
                 newHtml += `
-                    <div class="conversation-group" data-index="${index}">
+                    <div class="conversation-group" data-index="${index}" data-target-id="${targetId}">
                         <div class="conversation-header" role="button" tabindex="0">
                             <input type="checkbox" class="conversation-checkbox">
                             <span class="conversation-number">#${index + 1}</span>
@@ -359,7 +366,7 @@ function updateSidebar() {
         });
     }
     // 通义千问页面的处理
-    else if (hostname.includes('tongyi.aliyun.com')) {
+    else if (hostname.includes('www.tongyi.com')) {
         // 等待主容器加载
         const mainContainer = document.querySelector('.scrollWrapper--oanFSFJG');
         if (!mainContainer) {
@@ -388,8 +395,13 @@ function updateSidebar() {
         });
 
         pairs.forEach((pair, index) => {
+            // 为原始问元素打上锚点，便于定位
+            const targetId = pair.questionElement.getAttribute('data-ai-enhancer-target-id') || `ai-enhancer-target-${index}`;
+            try {
+                pair.questionElement.setAttribute('data-ai-enhancer-target-id', targetId);
+            } catch (_) {}
             newHtml += `
-                <div class="conversation-group" data-index="${index}">
+                <div class="conversation-group" data-index="${index}" data-target-id="${targetId}">
                     <div class="conversation-header" role="button" tabindex="0">
                         <input type="checkbox" class="conversation-checkbox">
                         <span class="conversation-number">#${index + 1}</span>
@@ -564,7 +576,7 @@ async function retry(fn, maxAttempts = 5, delay = 1000) {
 // 调整对话宽度
 async function adjustConversationWidth(level) {
     // 如果是通义千问页面，直接返回
-    if (window.location.hostname.includes('tongyi.aliyun.com')) {
+    if (window.location.hostname.includes('www.tongyi.com')) {
         console.log('通义千问页面不需要调整对话宽度');
         return;
     }
@@ -616,7 +628,7 @@ async function adjustConversationWidth(level) {
 // 初始化宽度设置
 async function initializeWidthSettings() {
     // 如果是通义千问页面，初始化宽度设置
-    if (window.location.hostname.includes('tongyi.aliyun.com')) {
+    if (window.location.hostname.includes('www.tongyi.com')) {
         console.log('通义千问页面不需要初始化宽度设置');
         return;
     }
@@ -664,7 +676,7 @@ async function initializeWidthSettings() {
 // 创建宽度调整的 MutationObserver
 function createWidthAdjustmentObserver() {
     // 如果是通义千问页面，不创建观察器
-    if (window.location.hostname.includes('tongyi.aliyun.com')) {
+    if (window.location.hostname.includes('www.tongyi.com')) {
         console.log('通义千问页面不需要创建宽度调整观察器');
         return null;
     }
@@ -757,7 +769,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const actualSidebarVisible = sidebar ? sidebar.style.display === 'flex' : false;
         
         // 根据页面类型返回不同的设置
-        const isTongyi = window.location.hostname.includes('tongyi.aliyun.com');
+        const isTongyi = window.location.hostname.includes('www.tongyi.com');
         sendResponse({
             sidebarVisible: actualSidebarVisible,
             conversationWidth: isTongyi ? undefined : currentWidthLevel, // 通义千问页面不返回宽度设置
@@ -786,7 +798,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     
     if (request.action === 'adjustWidth') {
         // 如果是通义千问页面，忽略宽度调整请求
-        if (!window.location.hostname.includes('tongyi.aliyun.com')) {
+        if (!window.location.hostname.includes('www.tongyi.com')) {
             adjustConversationWidth(request.widthLevel);
             saveSettings({ conversationWidth: request.widthLevel });
         }
@@ -823,7 +835,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         markdown += '---\n\n';
                     }
                 });
-            } else if (hostname.includes('tongyi.aliyun.com')) {
+            } else if (hostname.includes('www.tongyi.com')) {
                 // 通义千问页面的处理
                 const questions = document.querySelectorAll('.questionItem--dS3Alcnv');
                 const answers = document.querySelectorAll('.answerItem--U4_Uv3iw');
@@ -956,7 +968,7 @@ async function init() {
                 const hostname = window.location.hostname;
                 if (hostname.includes('chatgpt.com')) {
                     return target.closest(SELECTORS.MESSAGE_CONTAINER);
-                } else if (hostname.includes('tongyi.aliyun.com')) {
+                } else if (hostname.includes('www.tongyi.com')) {
                     return target.closest('.questionItem--dS3Alcnv') || 
                            target.closest('.answerItem--U4_Uv3iw') ||
                            target.closest('.scrollWrapper--oanFSFJG');
@@ -1001,7 +1013,7 @@ async function init() {
                         clearInterval(updateInterval);
                     }
                 }
-            } else if (hostname.includes('tongyi.aliyun.com')) {
+            } else if (hostname.includes('www.tongyi.com')) {
                 const questions = document.querySelectorAll('.questionItem--dS3Alcnv');
                 const answers = document.querySelectorAll('.answerItem--U4_Uv3iw');
                 if (questions.length > 0 || answers.length > 0) {
@@ -1042,7 +1054,7 @@ function getFullConversationContent(questionElement, answerElement) {
     if (hostname.includes('chatgpt.com')) {
         question = questionElement.querySelector('[data-message-author-role="user"] .whitespace-pre-wrap')?.textContent?.trim() || '';
         answer = answerElement?.querySelector('[data-message-author-role="assistant"] .markdown')?.textContent?.trim() || '';
-    } else if (hostname.includes('tongyi.aliyun.com')) {
+    } else if (hostname.includes('www.tongyi.com')) {
         question = questionElement.querySelector('.bubble--H3ZjjTnP')?.textContent?.trim() || '';
         answer = answerElement.querySelector('.tongyi-markdown')?.textContent?.trim() || '';
     }
@@ -1100,68 +1112,66 @@ function handleConversationClick(event) {
     
     if (hostname.includes('chatgpt.com')) {
         try {
-            // 使用更准确的选择器来查找对话元素
-            console.log('开始查找ChatGPT对话元素');
-            
-            // 查找所有对话容器，使用更精确的选择器
-            const conversationContainers = Array.from(document.querySelectorAll('[data-testid^="conversation-turn-"]'));
-            console.log('找到对话容器数量:', conversationContainers.length);
-            
-            // 过滤出用户消息的容器（奇数索引）
-            const userMessageContainers = [];
-            for (let i = 0; i < conversationContainers.length; i += 2) {
-                const userContainer = conversationContainers[i];
-                if (userContainer && userContainer.querySelector('[data-message-author-role="user"]')) {
-                    userMessageContainers.push(userContainer);
-                }
+            // 优先使用我们注入的锚点属性进行定位，更稳健
+            const targetId = group.getAttribute('data-target-id');
+            let targetConversation = null;
+
+            if (targetId) {
+                targetConversation = document.querySelector(`[data-ai-enhancer-target-id="${CSS.escape(targetId)}"]`);
             }
-            
-            console.log('用户消息容器数量:', userMessageContainers.length, '目标索引:', index);
-            
-            // 获取目标对话
-            const targetConversation = userMessageContainers[index];
-            if (targetConversation) {
-                console.log('找到目标对话元素:', {
-                    'data-testid': targetConversation.getAttribute('data-testid'),
-                    'class': targetConversation.className,
-                    'position': targetConversation.getBoundingClientRect()
-                });
-                
-                // 滚动到目标位置
-                targetConversation.scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'center' 
-                });
-                
-                // 添加高亮效果
-                targetConversation.classList.add('highlight');
-                setTimeout(() => {
-                    targetConversation.classList.remove('highlight');
-                }, 2000);
-                
-                console.log('滚动和高亮处理完成');
+
+            // 回退：旧方案，按 turn 容器 + 偶/奇配对
+            if (!targetConversation) {
+                console.log('未通过锚点找到元素，回退到旧选择器逻辑');
+                const conversationContainers = Array.from(document.querySelectorAll('[data-testid^="conversation-turn-"]'));
+                const userMessageContainers = [];
+                for (let i = 0; i < conversationContainers.length; i += 2) {
+                    const userContainer = conversationContainers[i];
+                    if (userContainer && userContainer.querySelector('[data-message-author-role="user"]')) {
+                        userMessageContainers.push(userContainer);
+                    }
+                }
+                targetConversation = userMessageContainers[index] || conversationContainers[index * 2] || conversationContainers[index];
+            }
+
+            if (targetConversation && typeof targetConversation.scrollIntoView === 'function') {
+                targetConversation.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                // 注入并应用高亮样式（非必需，仅视觉反馈）
+                ensureHighlightStyle();
+                targetConversation.classList.add('ai-enhancer-highlight');
+                setTimeout(() => targetConversation.classList.remove('ai-enhancer-highlight'), 1600);
             } else {
-                console.error('未找到目标对话元素，可能的原因：', {
-                    '总对话数': conversationContainers.length,
-                    '用户消息数': userMessageContainers.length,
-                    '请求的索引': index
-                });
-                
-                // 备用方案：尝试直接滚动到页面顶部附近的位置
-                const estimatedPosition = index * 300; // 估算每个对话大约300px高度
-                window.scrollTo({
-                    top: estimatedPosition,
-                    behavior: 'smooth'
-                });
+                console.warn('无法定位到目标对话元素，使用估算滚动');
+                const estimatedPosition = Math.max(0, index * 300);
+                window.scrollTo({ top: estimatedPosition, behavior: 'smooth' });
             }
         } catch (error) {
             console.error('处理ChatGPT对话时发生错误:', error);
         }
-    } else if (hostname.includes('tongyi.aliyun.com')) {
+    } else if (hostname.includes('www.tongyi.com')) {
         const questions = document.querySelectorAll('.questionItem--dS3Alcnv');
         const targetQuestion = questions[index];
         if (targetQuestion) {
             targetQuestion.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     }
+}
+
+// 确保注入高亮样式
+function ensureHighlightStyle() {
+    if (document.getElementById('ai-enhancer-highlight-style')) return;
+    const style = document.createElement('style');
+    style.id = 'ai-enhancer-highlight-style';
+    style.textContent = `
+    .ai-enhancer-highlight {
+        animation: ai-enhancer-highlight-fade 1.6s ease;
+        background-color: rgba(255, 255, 0, 0.35) !important;
+        transition: background-color 0.6s ease;
+    }
+    @keyframes ai-enhancer-highlight-fade {
+        0% { background-color: rgba(255, 255, 0, 0.65); }
+        100% { background-color: transparent; }
+    }`;
+    document.head.appendChild(style);
 }
