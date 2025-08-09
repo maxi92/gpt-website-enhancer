@@ -595,6 +595,9 @@ async function initializeWidthSettings() {
         if (result.conversationWidth !== undefined) {
             currentWidthLevel = result.conversationWidth;
             await adjustConversationWidth(currentWidthLevel);
+        } else {
+            // 未保存过时，设定并持久化为默认档位，避免后续观察器回退
+            await adjustConversationWidth(2);
         }
     } catch (error) {
         console.error('初始化宽度设置失败:', error);
@@ -695,13 +698,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
         // 使用实际的显示状态来判断
         const actualSidebarVisible = sidebar ? sidebar.style.display === 'flex' : false;
+        // 读取当前侧边栏实际宽度（如不可得则回退 380）
+        const sidebarWidthPx = (() => {
+            if (!sidebar) return 380;
+            const computed = parseInt(window.getComputedStyle(sidebar).width, 10);
+            if (!Number.isNaN(computed)) return computed;
+            const inline = parseInt((sidebar.style.width || '380px').replace('px', ''), 10);
+            return Number.isNaN(inline) ? 380 : inline;
+        })();
 
         // 根据页面类型返回不同的设置
         const isTongyi = window.location.hostname.includes('www.tongyi.com');
         sendResponse({
             sidebarVisible: actualSidebarVisible,
             conversationWidth: isTongyi ? undefined : currentWidthLevel, // 通义千问页面不返回宽度设置
-            sidebarWidth: 380,
+            sidebarWidth: sidebarWidthPx,
             isTongyi: isTongyi // 添加页面类型标识
         });
         return true;
@@ -809,8 +820,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // 在页面加载完成后应用设置
 async function initialize() {
     try {
-        // 注入全局样式，强制放宽 ChatGPT 对话区域宽度
-        ensureChatGPTWidthStyle();
+        // 先应用存储的设置，避免默认样式覆盖用户选择
         await applySettings();
         await initializeWidthSettings();
 
