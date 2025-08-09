@@ -118,6 +118,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         copyMarkdownButton.style.display = 'block';
                         tocContainer.style.display = 'flex';
 
+                        // 确保复制按钮可见
+                        try {
+                            copyMarkdownButton.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        } catch (e) {}
+
                         // 显示复制成功反馈
                         const button = exportMarkdownButton;
                         const originalText = button.textContent;
