@@ -126,7 +126,7 @@ function createSidebar() {
         const selectedGroups = sidebar.querySelectorAll('.conversation-checkbox:checked');
         if (selectedGroups.length === 0) return;
 
-        let copyText = '';
+        let copyText = '# AI对话记录\n\n';
         selectedGroups.forEach(checkbox => {
             const group = checkbox.closest('.conversation-group');
             const index = parseInt(group.dataset.index);
@@ -148,7 +148,7 @@ function createSidebar() {
 
             if (questionElement && answerElement) {
                 const { question, answer } = getFullConversationContent(questionElement, answerElement);
-                copyText += `### 对话 ${index + 1}\n\n**问题**：${question}\n\n**回答**：${answer}\n\n---\n\n`;
+                copyText += `## 对话 ${index + 1}\n\n**问题**：${question}\n\n**回答**：${answer}\n\n---\n\n`;
             }
         });
 
@@ -186,12 +186,12 @@ function copyToClipboard(text) {
 
 // 将选中的对话转换为Markdown
 function convertSelectedToMarkdown(groups) {
-    let markdown = '';
+    let markdown = '# AI对话记录\n\n';
     groups.forEach((group, index) => {
         const userContent = group.querySelector('.conversation-item.user .conversation-text').textContent;
         const assistantContent = group.querySelector('.conversation-item.assistant .conversation-text').textContent;
 
-        markdown += `### 对话 ${index + 1}\n\n`;
+        markdown += `## 对话 ${index + 1}\n\n`;
         markdown += `**问题**：${userContent}\n\n`;
         markdown += `**回答**：${assistantContent}\n\n`;
         markdown += '---\n\n';
@@ -569,8 +569,8 @@ function convertGeminiElementToMarkdown(element) {
                     case 'h4':
                     case 'h5':
                     case 'h6':
-                        const level = node.tagName.substring(1);
-                        markdown += `#${level} ${escapeMarkdownText(node.textContent.trim())}\n\n`;
+                        const level = parseInt(node.tagName.substring(1));
+                        markdown += `${'#'.repeat(level)} ${escapeMarkdownText(node.textContent.trim())}\n\n`;
                         break;
                     case 'ul':
                         markdown += '\n';
@@ -944,7 +944,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'getMarkdown') {
         try {
             const hostname = window.location.hostname;
-            let markdown = '';
+            let markdown = '# AI对话记录\n\n';
             let conversations = [];
 
             if (hostname.includes('chatgpt.com')) {
@@ -961,7 +961,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                             title: userContent.length > 50 ? userContent.substring(0, 50) + '...' : userContent
                         });
 
-                        markdown += `### 对话 ${Math.floor(index / 2) + 1}\n\n`;
+                        markdown += `## 对话 ${Math.floor(index / 2) + 1}\n\n`;
                         markdown += '**Q:** ';
                         markdown += convertElementToMarkdown(userMessage) + '\n\n';
                     }
@@ -985,7 +985,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                             title: questionContent.length > 50 ? questionContent.substring(0, 50) + '...' : questionContent
                         });
 
-                        markdown += `### 对话 ${index + 1}\n\n`;
+                        markdown += `## 对话 ${index + 1}\n\n`;
                         markdown += '**Q:** ';
                         markdown += convertElementToMarkdown(question.querySelector('.bubble--H3ZjjTnP')) + '\n\n';
                         markdown += '**A:** ';
@@ -1008,7 +1008,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                             title: questionContent.length > 50 ? questionContent.substring(0, 50) + '...' : questionContent
                         });
 
-                        markdown += `### 对话 ${index + 1}\n\n`;
+                        markdown += `## 对话 ${index + 1}\n\n`;
                         markdown += '**Q:** ';
                         markdown += convertElementToMarkdown(userQuery) + '\n\n';
                         markdown += '**A:** ';
