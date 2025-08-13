@@ -532,7 +532,65 @@ function convertElementToMarkdown(element) {
             }
             // 处理其他元素
             else {
-                markdown += convertElementToMarkdown(node);
+                switch (node.tagName.toLowerCase()) {
+                    case 'p':
+                        markdown += convertElementToMarkdown(node) + '\n\n';
+                        break;
+                    case 'strong':
+                    case 'b':
+                        const boldContent = convertElementToMarkdown(node).trim();
+                        markdown += `**${boldContent}**`;
+                        break;
+                    case 'em':
+                    case 'i':
+                        const italicContent = convertElementToMarkdown(node).trim();
+                        markdown += `*${italicContent}*`;
+                        break;
+                    case 'h1':
+                    case 'h2':
+                    case 'h3':
+                    case 'h4':
+                    case 'h5':
+                    case 'h6':
+                        const level = parseInt(node.tagName.substring(1));
+                        markdown += `${'#'.repeat(level)} ${escapeMarkdownText(node.textContent.trim())}\n\n`;
+                        break;
+                    case 'ul':
+                        markdown += '\n';
+                        node.querySelectorAll('li').forEach(li => {
+                            const liContent = convertElementToMarkdown(li).trim();
+                            markdown += `- ${liContent}\n`;
+                        });
+                        markdown += '\n';
+                        break;
+                    case 'ol':
+                        markdown += '\n';
+                        node.querySelectorAll('li').forEach((li, index) => {
+                            const liContent = convertElementToMarkdown(li).trim();
+                            markdown += `${index + 1}. ${liContent}\n`;
+                        });
+                        markdown += '\n';
+                        break;
+                    case 'a':
+                        markdown += `[${escapeMarkdownText(node.textContent.trim())}](${node.href})`;
+                        break;
+                    case 'table':
+                        // 简单表格处理
+                        markdown += '\n';
+                        const rows = node.querySelectorAll('tr');
+                        rows.forEach((row, rowIndex) => {
+                            const cells = row.querySelectorAll('th, td');
+                            const rowContent = Array.from(cells).map(cell => escapeMarkdownText(cell.textContent.trim())).join(' | ');
+                            markdown += `| ${rowContent} |\n`;
+                            if (rowIndex === 0) {
+                                markdown += `| ${Array.from(cells).map(() => '---').join(' | ')} |\n`;
+                            }
+                        });
+                        markdown += '\n';
+                        break;
+                    default:
+                        markdown += convertElementToMarkdown(node);
+                }
             }
         }
     });
