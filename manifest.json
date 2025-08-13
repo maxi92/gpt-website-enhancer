@@ -9,7 +9,8 @@
   ],
   "host_permissions": [
     "https://chatgpt.com/*",
-    "https://www.tongyi.com/*"
+    "https://www.tongyi.com/*",
+    "https://gemini.google.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -23,7 +24,8 @@
     {
       "matches": [
         "https://chatgpt.com/*",
-        "https://www.tongyi.com/*"
+        "https://www.tongyi.com/*",
+        "https://gemini.google.com/*"
       ],
       "js": ["content.js"],
       "css": ["styles.css"],

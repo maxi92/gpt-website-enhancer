@@ -24,8 +24,8 @@ function initializePopup() {
             // 根据页面类型显示或隐藏宽度调整控件
             const widthControlGroup = document.getElementById('widthControlGroup');
             if (widthControlGroup) {
-                // 只在通义千问页面隐藏宽度控制区域
-                if (response.isTongyi) {
+                // 在通义千问和Gemini页面隐藏宽度控制区域
+                if (response.isTongyi || response.isGemini) {
                     widthControlGroup.classList.add('hidden');
                 } else {
                     widthControlGroup.classList.remove('hidden');

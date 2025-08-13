@@ -235,6 +235,22 @@ const SITE_CONFIGS = {
             ai: '.tongyi-markdown'
         },
         site: 'tongyi'
+    },
+    gemini: {
+        conversationSelector: 'div.conversation-container',
+        humanMessageSelector: 'user-query',
+        aiMessageSelector: 'model-response',
+        messageContentSelector: {
+            human: '.query-text',
+            ai: '.model-response-text'
+        },
+        codeBlockSelector: 'code-block',
+        codeLanguageSelector: '.header-formatted > span',
+        codeContentSelector: 'code[data-test-id="code-content"]',
+        scrollContainerSelector: 'infinite-scroller',
+        site: 'gemini',
+        supportsWidthAdjustment: false,
+        supportsInfiniteScroll: true
     }
 };
 
@@ -245,6 +261,8 @@ function getCurrentSiteConfig() {
         return SITE_CONFIGS.chatgpt;
     } else if (hostname.includes('www.tongyi.com')) {
         return SITE_CONFIGS.tongyi;
+    } else if (hostname.includes('gemini.google.com')) {
+        return SITE_CONFIGS.gemini;
     }
     return null;
 }
@@ -255,50 +273,86 @@ function getConversationContent() {
     if (!siteConfig) return [];
 
     const conversations = [];
-    const elements = document.querySelectorAll(siteConfig.conversationSelector);
-    console.log('找到元素数量:', elements.length);
-
-    // 将问答组织成对
-    const pairs = [];
-    let currentPair = {};
-
-    elements.forEach((element) => {
-        const isHuman = element.matches(siteConfig.humanMessageSelector);
-        const contentSelector = isHuman
-            ? siteConfig.messageContentSelector.human
-            : siteConfig.messageContentSelector.ai;
-        const contentElement = element.querySelector(contentSelector);
-
-        if (contentElement) {
-            const content = contentElement.textContent.trim();
-            if (isHuman) {
-                currentPair = { question: content, questionElement: element };
-            } else {
-                if (currentPair.question) {
-                    currentPair.answer = content;
-                    currentPair.answerElement = element;
-                    pairs.push({ ...currentPair });
-                    currentPair = {};
+    
+    // Gemini页面的特殊处理
+    if (siteConfig.site === 'gemini') {
+        const containers = document.querySelectorAll(siteConfig.conversationSelector);
+        console.log('找到Gemini对话容器数量:', containers.length);
+        
+        containers.forEach((container, index) => {
+            const userQuery = container.querySelector(siteConfig.humanMessageSelector);
+            const modelResponse = container.querySelector(siteConfig.aiMessageSelector);
+            
+            if (userQuery && modelResponse) {
+                const questionElement = userQuery.querySelector(siteConfig.messageContentSelector.human);
+                const answerElement = modelResponse.querySelector(siteConfig.messageContentSelector.ai);
+                
+                if (questionElement && answerElement) {
+                    const question = questionElement.textContent.trim();
+                    const answer = answerElement.textContent.trim();
+                    
+                    conversations.push({
+                        id: index,
+                        type: 'group',
+                        question: question,
+                        answer: answer,
+                        questionElement: userQuery,
+                        answerElement: modelResponse,
+                        previewText: {
+                            question: question.length > 50 ? question.substring(0, 50) + '...' : question,
+                            answer: answer.length > 50 ? answer.substring(0, 50) + '...' : answer
+                        }
+                    });
                 }
             }
-        }
-    });
+        });
+    } else {
+        // 原有逻辑处理ChatGPT和通义千问
+        const elements = document.querySelectorAll(siteConfig.conversationSelector);
+        console.log('找到元素数量:', elements.length);
 
-    // 转换为导航项格式
-    pairs.forEach((pair, index) => {
-        conversations.push({
-            id: index,
-            type: 'group',
-            question: pair.question,
-            answer: pair.answer,
-            questionElement: pair.questionElement,
-            answerElement: pair.answerElement,
-            previewText: {
-                question: pair.question.length > 50 ? pair.question.substring(0, 50) + '...' : pair.question,
-                answer: pair.answer.length > 50 ? pair.answer.substring(0, 50) + '...' : pair.answer
+        // 将问答组织成对
+        const pairs = [];
+        let currentPair = {};
+
+        elements.forEach((element) => {
+            const isHuman = element.matches(siteConfig.humanMessageSelector);
+            const contentSelector = isHuman
+                ? siteConfig.messageContentSelector.human
+                : siteConfig.messageContentSelector.ai;
+            const contentElement = element.querySelector(contentSelector);
+
+            if (contentElement) {
+                const content = contentElement.textContent.trim();
+                if (isHuman) {
+                    currentPair = { question: content, questionElement: element };
+                } else {
+                    if (currentPair.question) {
+                        currentPair.answer = content;
+                        currentPair.answerElement = element;
+                        pairs.push({ ...currentPair });
+                        currentPair = {};
+                    }
+                }
             }
         });
-    });
+
+        // 转换为导航项格式
+        pairs.forEach((pair, index) => {
+            conversations.push({
+                id: index,
+                type: 'group',
+                question: pair.question,
+                answer: pair.answer,
+                questionElement: pair.questionElement,
+                answerElement: pair.answerElement,
+                previewText: {
+                    question: pair.question.length > 50 ? pair.question.substring(0, 50) + '...' : pair.question,
+                    answer: pair.answer.length > 50 ? pair.answer.substring(0, 50) + '...' : pair.answer
+                }
+            });
+        });
+    }
 
     console.log('处理后的对话组数:', conversations.length);
     return conversations;
@@ -313,111 +367,42 @@ function updateSidebar() {
         return;
     }
 
-    const hostname = window.location.hostname;
+    const siteConfig = getCurrentSiteConfig();
+    if (!siteConfig) {
+        console.error('未获取到站点配置');
+        return;
+    }
+
     let newHtml = '';
 
-    // ChatGPT页面的处理
-    if (hostname.includes('chatgpt.com')) {
-        const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
-        console.log(`找到 ${conversations.length} 条ChatGPT对话`);
+    // 使用统一的对话获取逻辑
+    const conversations = getConversationContent();
+    console.log(`找到 ${conversations.length} 条对话`);
 
-        // 将对话按组配
-        const groups = [];
-        for (let i = 0; i < conversations.length; i += 2) {
-            if (i + 1 < conversations.length) {
-                groups.push([conversations[i], conversations[i + 1]]);
-            } else {
-                groups.push([conversations[i]]);
-            }
-        }
+    conversations.forEach((conversation, index) => {
+        // 为原始元素打上锚点属性
+        const targetId = conversation.questionElement.getAttribute('data-ai-enhancer-target-id') || `ai-enhancer-target-${index}`;
+        try {
+            conversation.questionElement.setAttribute('data-ai-enhancer-target-id', targetId);
+        } catch (_) { }
 
-        groups.forEach((groupNodes, index) => {
-            const groupUserNode = groupNodes[0];
-            const userMessage = groupUserNode.querySelector('[data-message-author-role="user"]') || groupUserNode; // 回退使用整个容器
-            const assistantMessage = groupNodes[1]?.querySelector('[data-message-author-role="assistant"]') || groupNodes[1];
-
-            if (userMessage) {
-                const userContent = userMessage.querySelector?.('.whitespace-pre-wrap')?.textContent?.trim() || userMessage.textContent?.trim() || '空内容';
-                const assistantContent = assistantMessage?.querySelector?.('.markdown')?.textContent?.trim() || assistantMessage?.textContent?.trim() || '等待回复...';
-
-                // 为页面中的原始元素打上可定位的锚点属性
-                const targetId = groupUserNode.getAttribute('data-ai-enhancer-target-id') || `ai-enhancer-target-${index}`;
-                try {
-                    groupUserNode.setAttribute('data-ai-enhancer-target-id', targetId);
-                } catch (_) { }
-
-                newHtml += `
-                    <div class="conversation-group" data-index="${index}" data-target-id="${targetId}">
-                        <div class="conversation-header" role="button" tabindex="0">
-                            <input type="checkbox" class="conversation-checkbox">
-                            <span class="conversation-number">#${index + 1}</span>
-                        </div>
-                        <div class="conversation-item user">
-                            <span class="conversation-icon">Q:</span>
-                            <span class="conversation-text">${truncateText(userContent, 100, false)}</span>
-                        </div>
-                        <div class="conversation-item assistant">
-                            <span class="conversation-icon">A:</span>
-                            <span class="conversation-text">${truncateText(assistantContent, 100, true)}</span>
-                        </div>
-                    </div>
-                `;
-            }
-        });
-    }
-    // 通义千问页面的处理
-    else if (hostname.includes('www.tongyi.com')) {
-        // 等待主容器加载
-        const mainContainer = document.querySelector('.scrollWrapper--oanFSFJG');
-        if (!mainContainer) {
-            console.log('通义千问主容器未加载，跳过更新');
-            return;
-        }
-
-        const questions = mainContainer.querySelectorAll('.questionItem--dS3Alcnv');
-        const answers = mainContainer.querySelectorAll('.answerItem--U4_Uv3iw');
-        console.log(`找到 ${questions.length} 个问题和 ${answers.length} 个回答`);
-
-        // 将问答组织成对
-        const pairs = [];
-        questions.forEach((question, index) => {
-            const answer = answers[index];
-            if (question && answer) {
-                const questionContent = question.querySelector('.bubble--H3ZjjTnP')?.textContent?.trim() || '空内容';
-                const answerContent = answer.querySelector('.tongyi-markdown')?.textContent?.trim() || '等待回复...';
-                pairs.push({
-                    question: questionContent,
-                    answer: answerContent,
-                    questionElement: question,
-                    answerElement: answer
-                });
-            }
-        });
-
-        pairs.forEach((pair, index) => {
-            // 为原始问元素打上锚点，便于定位
-            const targetId = pair.questionElement.getAttribute('data-ai-enhancer-target-id') || `ai-enhancer-target-${index}`;
-            try {
-                pair.questionElement.setAttribute('data-ai-enhancer-target-id', targetId);
-            } catch (_) { }
-            newHtml += `
-                <div class="conversation-group" data-index="${index}" data-target-id="${targetId}">
-                    <div class="conversation-header" role="button" tabindex="0">
-                        <input type="checkbox" class="conversation-checkbox">
-                        <span class="conversation-number">#${index + 1}</span>
-                    </div>
-                    <div class="conversation-item user">
-                        <span class="conversation-icon">Q:</span>
-                        <span class="conversation-text">${truncateText(pair.question, 100, false)}</span>
-                    </div>
-                    <div class="conversation-item assistant">
-                        <span class="conversation-icon">A:</span>
-                        <span class="conversation-text">${truncateText(pair.answer, 100, true)}</span>
-                    </div>
+        newHtml += `
+            <div class="conversation-group" data-index="${index}" data-target-id="${targetId}">
+                <div class="conversation-header" role="button" tabindex="0">
+                    <input type="checkbox" class="conversation-checkbox">
+                    <span class="conversation-number">#${index + 1}</span>
                 </div>
-            `;
-        });
-    }
+                <div class="conversation-item user">
+                    <span class="conversation-icon">Q:</span>
+                    <span class="conversation-text">${truncateText(conversation.question, 100, false)}</span>
+                </div>
+                <div class="conversation-item assistant">
+                    <span class="conversation-icon">A:</span>
+                    <span class="conversation-text">${truncateText(conversation.answer, 100, true)}</span>
+                </div>
+            </div>
+        `;
+    });
 
     // 只当内容真的变化时更新
     if (sidebarContent.innerHTML !== newHtml) {
@@ -456,7 +441,8 @@ function convertElementToMarkdown(element) {
         } else if (node.nodeType === Node.ELEMENT_NODE) {
             // 处理代码块
             if (node.classList?.contains('!overflow-visible') ||
-                node.tagName === 'PRE') {
+                node.tagName === 'PRE' ||
+                node.tagName === 'CODE-BLOCK') {
                 // 移除代码块前后可能存在的多余换行
                 markdown = markdown.trimEnd();
                 markdown += processCodeBlock(node);
@@ -471,11 +457,108 @@ function convertElementToMarkdown(element) {
     return markdown;
 }
 
+// 专门处理Gemini元素的转换函数
+function convertGeminiElementToMarkdown(element) {
+    if (!element) return '';
+
+    let markdown = '';
+
+    // 遍历所有子元素
+    element.childNodes.forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE) {
+            markdown += node.textContent;
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+            // 处理Gemini代码块
+            if (node.tagName === 'CODE-BLOCK') {
+                markdown = markdown.trimEnd();
+                markdown += processGeminiCodeBlock(node);
+            }
+            // 处理其他HTML元素
+            else {
+                switch (node.tagName.toLowerCase()) {
+                    case 'p':
+                        markdown += convertGeminiElementToMarkdown(node) + '\n\n';
+                        break;
+                    case 'h1':
+                    case 'h2':
+                    case 'h3':
+                    case 'h4':
+                    case 'h5':
+                    case 'h6':
+                        const level = node.tagName.substring(1);
+                        markdown += `#${level} ${node.textContent.trim()}\n\n`;
+                        break;
+                    case 'ul':
+                        markdown += '\n';
+                        node.querySelectorAll('li').forEach(li => {
+                            markdown += `- ${li.textContent.trim()}\n`;
+                        });
+                        markdown += '\n';
+                        break;
+                    case 'ol':
+                        markdown += '\n';
+                        node.querySelectorAll('li').forEach((li, index) => {
+                            markdown += `${index + 1}. ${li.textContent.trim()}\n`;
+                        });
+                        markdown += '\n';
+                        break;
+                    case 'pre':
+                        // 可能是未包装在code-block中的代码
+                        markdown += `\`\`\`\n${node.textContent.trim()}\n\`\`\`\n\n`;
+                        break;
+                    case 'code':
+                        // 内联代码
+                        if (!node.closest('pre') && !node.closest('code-block')) {
+                            markdown += `\`${node.textContent.trim()}\``;
+                        } else {
+                            markdown += convertGeminiElementToMarkdown(node);
+                        }
+                        break;
+                    case 'a':
+                        markdown += `[${node.textContent.trim()}](${node.href})`;
+                        break;
+                    case 'strong':
+                    case 'b':
+                        markdown += `**${node.textContent.trim()}**`;
+                        break;
+                    case 'em':
+                    case 'i':
+                        markdown += `*${node.textContent.trim()}*`;
+                        break;
+                    case 'table':
+                        // 简单表格处理
+                        markdown += '\n';
+                        const rows = node.querySelectorAll('tr');
+                        rows.forEach((row, rowIndex) => {
+                            const cells = row.querySelectorAll('th, td');
+                            const rowContent = Array.from(cells).map(cell => cell.textContent.trim()).join(' | ');
+                            markdown += `| ${rowContent} |\n`;
+                            if (rowIndex === 0) {
+                                markdown += `| ${Array.from(cells).map(() => '---').join(' | ')} |\n`;
+                            }
+                        });
+                        markdown += '\n';
+                        break;
+                    default:
+                        markdown += convertGeminiElementToMarkdown(node);
+                }
+            }
+        }
+    });
+
+    return markdown.trim();
+}
+
 // 修改代码块处理函数
 function processCodeBlock(codeBlock) {
     if (!codeBlock) return '';
 
-    // 获取代码语言
+    // 检查是否是Gemini的代码块
+    if (codeBlock.tagName === 'CODE-BLOCK' || codeBlock.querySelector('.header-formatted')) {
+        return processGeminiCodeBlock(codeBlock);
+    }
+
+    // 原有ChatGPT代码块处理逻辑
     const langDiv = codeBlock.querySelector('.flex.items-center.text-token-text-secondary');
     const language = langDiv ? langDiv.textContent.trim() : '';
 
@@ -488,6 +571,25 @@ function processCodeBlock(codeBlock) {
     }
 
     // 返回格式化后的 markdown 代码块，确保前后都有换行
+    return `\n\`\`\`${language}\n${codeText}\n\`\`\`\n`;
+}
+
+// 处理Gemini代码块的专用函数
+function processGeminiCodeBlock(codeBlock) {
+    if (!codeBlock) return '';
+
+    // 获取代码语言
+    const languageElement = codeBlock.querySelector('.header-formatted > span');
+    const language = languageElement ? languageElement.textContent.trim() : '';
+
+    // 获取代码内容 - 使用innerText避免高亮span标签
+    const codeContentElement = codeBlock.querySelector('code[data-test-id="code-content"]');
+    let codeText = '';
+    if (codeContentElement) {
+        codeText = codeContentElement.innerText.trim();
+    }
+
+    // 返回格式化后的 markdown 代码块
     return `\n\`\`\`${language}\n${codeText}\n\`\`\`\n`;
 }
 
@@ -709,11 +811,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         // 根据页面类型返回不同的设置
         const isTongyi = window.location.hostname.includes('www.tongyi.com');
+        const isGemini = window.location.hostname.includes('gemini.google.com');
         sendResponse({
             sidebarVisible: actualSidebarVisible,
-            conversationWidth: isTongyi ? undefined : currentWidthLevel, // 通义千问页面不返回宽度设置
+            conversationWidth: (isTongyi || isGemini) ? undefined : currentWidthLevel, // 通义千问和Gemini页面不返回宽度设置
             sidebarWidth: sidebarWidthPx,
-            isTongyi: isTongyi // 添加页面类型标识
+            isTongyi: isTongyi, // 添加页面类型标识
+            isGemini: isGemini // 添加Gemini页面标识
         });
         return true;
     }
@@ -736,8 +840,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     if (request.action === 'adjustWidth') {
-        // 如果是通义千问页面，忽略宽度调整请求
-        if (!window.location.hostname.includes('www.tongyi.com')) {
+        // 如果是通义千问或Gemini页面，忽略宽度调整请求
+        if (!window.location.hostname.includes('www.tongyi.com') && 
+            !window.location.hostname.includes('gemini.google.com')) {
             adjustConversationWidth(request.widthLevel);
             saveSettings({ conversationWidth: request.widthLevel });
         }
@@ -793,6 +898,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         markdown += convertElementToMarkdown(question.querySelector('.bubble--H3ZjjTnP')) + '\n\n';
                         markdown += '**A:** ';
                         markdown += convertElementToMarkdown(answer.querySelector('.tongyi-markdown')) + '\n\n';
+                        markdown += '---\n\n';
+                    }
+                });
+            } else if (hostname.includes('gemini.google.com')) {
+                // Gemini页面的处理
+                const containers = document.querySelectorAll('div.conversation-container');
+                
+                containers.forEach((container, index) => {
+                    const userQuery = container.querySelector('user-query .query-text');
+                    const modelResponse = container.querySelector('model-response .model-response-text');
+                    
+                    if (userQuery && modelResponse) {
+                        const questionContent = userQuery.textContent?.trim() || '';
+                        conversations.push({
+                            index: index + 1,
+                            title: questionContent.length > 50 ? questionContent.substring(0, 50) + '...' : questionContent
+                        });
+
+                        markdown += `### 对话 ${index + 1}\n\n`;
+                        markdown += '**Q:** ';
+                        markdown += convertElementToMarkdown(userQuery) + '\n\n';
+                        markdown += '**A:** ';
+                        markdown += convertGeminiElementToMarkdown(modelResponse) + '\n\n';
                         markdown += '---\n\n';
                     }
                 });
@@ -912,6 +1040,11 @@ async function init() {
                     return target.closest('.questionItem--dS3Alcnv') ||
                         target.closest('.answerItem--U4_Uv3iw') ||
                         target.closest('.scrollWrapper--oanFSFJG');
+                } else if (hostname.includes('gemini.google.com')) {
+                    return target.closest('div.conversation-container') ||
+                        target.closest('user-query') ||
+                        target.closest('model-response') ||
+                        target.closest('infinite-scroller');
                 }
                 return false;
             });
@@ -968,6 +1101,26 @@ async function init() {
                         clearInterval(updateInterval);
                     }
                 }
+            } else if (hostname.includes('gemini.google.com')) {
+                const containers = document.querySelectorAll('div.conversation-container');
+                if (containers.length > 0) {
+                    console.log('Gemini对话已加载，更新导航栏');
+                    updateSidebar();
+                    
+                    // 延迟执行历史对话加载，避免影响初始性能
+                    setTimeout(() => {
+                        loadAllGeminiConversations();
+                    }, 2000);
+                    
+                    clearInterval(updateInterval);
+                } else {
+                    console.log('等待Gemini对话加载...');
+                    updateAttempts++;
+                    if (updateAttempts >= maxAttempts) {
+                        console.log('达到最大尝试次数，停止自动更新');
+                        clearInterval(updateInterval);
+                    }
+                }
             }
         }, 1000);
 
@@ -997,9 +1150,99 @@ function getFullConversationContent(questionElement, answerElement) {
     } else if (hostname.includes('www.tongyi.com')) {
         question = questionElement.querySelector('.bubble--H3ZjjTnP')?.textContent?.trim() || '';
         answer = answerElement.querySelector('.tongyi-markdown')?.textContent?.trim() || '';
+    } else if (hostname.includes('gemini.google.com')) {
+        question = questionElement.querySelector('.query-text')?.textContent?.trim() || '';
+        answer = answerElement.querySelector('.model-response-text')?.textContent?.trim() || '';
     }
 
     return { question, answer };
+}
+
+// Gemini专用：加载所有历史对话
+async function loadAllGeminiConversations() {
+    const siteConfig = getCurrentSiteConfig();
+    if (!siteConfig || siteConfig.site !== 'gemini') {
+        console.log('非Gemini页面，跳过动态加载');
+        return;
+    }
+
+    const scrollContainer = document.querySelector(siteConfig.scrollContainerSelector);
+    if (!scrollContainer) {
+        console.error('未找到Gemini滚动容器');
+        return;
+    }
+
+    console.log('开始加载Gemini历史对话...');
+    let previousCount = 0;
+    let attempts = 0;
+    const maxAttempts = 10; // 最大尝试次数，避免无限循环
+
+    while (attempts < maxAttempts) {
+        attempts++;
+        const currentCount = document.querySelectorAll(siteConfig.conversationSelector).length;
+        console.log(`第${attempts}次尝试，当前对话数量: ${currentCount}`);
+
+        // 如果数量没有变化，说明已经加载完毕
+        if (previousCount > 0 && currentCount === previousCount) {
+            console.log('Gemini历史对话加载完成');
+            break;
+        }
+
+        previousCount = currentCount;
+
+        // 滚动到顶部触发加载
+        scrollContainer.scrollTop = 0;
+
+        // 等待新内容加载
+        await waitForGeminiContentLoad(scrollContainer);
+        
+        // 给一点延迟，避免过于频繁的请求
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    console.log(`Gemini对话加载完成，总共${document.querySelectorAll(siteConfig.conversationSelector).length}条对话`);
+    updateSidebar(); // 更新侧边栏显示
+}
+
+// 等待Gemini新内容加载
+function waitForGeminiContentLoad(scrollContainer) {
+    return new Promise((resolve) => {
+        const observer = new MutationObserver((mutations, obs) => {
+            // 检查是否有新的对话容器被添加
+            for (const mutation of mutations) {
+                if (mutation.addedNodes.length > 0) {
+                    const hasNewConversation = Array.from(mutation.addedNodes).some(node => {
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            return node.matches('div.conversation-container') || 
+                                   node.querySelector('div.conversation-container');
+                        }
+                        return false;
+                    });
+                    
+                    if (hasNewConversation) {
+                        obs.disconnect();
+                        resolve();
+                        return;
+                    }
+                }
+            }
+        });
+
+        // 观察滚动容器的第一个子元素（通常是内容容器）
+        const firstChild = scrollContainer.firstElementChild;
+        if (firstChild) {
+            observer.observe(firstChild, { 
+                childList: true, 
+                subtree: true 
+            });
+        }
+
+        // 设置超时，避免无限等待
+        setTimeout(() => {
+            observer.disconnect();
+            resolve();
+        }, 3000); // 3秒超时
+    });
 }
 
 // 修改点击事件处理函数
@@ -1094,6 +1337,37 @@ function handleConversationClick(event) {
         const targetQuestion = questions[index];
         if (targetQuestion) {
             targetQuestion.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    } else if (hostname.includes('gemini.google.com')) {
+        try {
+            // 使用统一的锚点定位机制
+            const targetId = group.getAttribute('data-target-id');
+            let targetConversation = null;
+
+            if (targetId) {
+                targetConversation = document.querySelector(`[data-ai-enhancer-target-id="${CSS.escape(targetId)}"]`);
+            }
+
+            // 回退：通过conversation-container索引定位
+            if (!targetConversation) {
+                const containers = document.querySelectorAll('div.conversation-container');
+                targetConversation = containers[index];
+            }
+
+            if (targetConversation && typeof targetConversation.scrollIntoView === 'function') {
+                targetConversation.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                // 注入并应用高亮样式
+                ensureHighlightStyle();
+                targetConversation.classList.add('ai-enhancer-highlight');
+                setTimeout(() => targetConversation.classList.remove('ai-enhancer-highlight'), 1600);
+            } else {
+                console.warn('无法定位到Gemini目标对话元素，使用估算滚动');
+                const estimatedPosition = Math.max(0, index * 400);
+                window.scrollTo({ top: estimatedPosition, behavior: 'smooth' });
+            }
+        } catch (error) {
+            console.error('处理Gemini对话时发生错误:', error);
         }
     }
 }
