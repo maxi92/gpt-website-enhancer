@@ -417,6 +417,82 @@ function updateSidebar() {
     }
 }
 
+// HTML实体解码函数 - 将HTML实体转换为普通字符
+function decodeHtmlEntities(text) {
+    if (!text) return '';
+    
+    return text
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&nbsp;/g, ' ');
+}
+
+// Markdown文本转义函数 - 转义Markdown特殊字符
+function escapeMarkdownText(text, decodeHtml = false) {
+    if (!text) return '';
+    
+    // 如果需要，先解码HTML实体
+    let processedText = decodeHtml ? decodeHtmlEntities(text) : text;
+    
+    return processedText
+        // 转义反斜杠
+        .replace(/\\/g, '\\\\')
+        // 转义反引号
+        .replace(/`/g, '\\`')
+        // 转义星号
+        .replace(/\*/g, '\\*')
+        // 转义下划线
+        .replace(/_/g, '\\_')
+        // 转义花括号
+        .replace(/\{/g, '\\{')
+        .replace(/\}/g, '\\}')
+        // 转义方括号
+        .replace(/\[/g, '\\[')
+        .replace(/\]/g, '\\]')
+        // 转义括号
+        .replace(/\(/g, '\\(')
+        .replace(/\)/g, '\\)')
+        // 转义井号
+        .replace(/#/g, '\\#')
+        // 转义加号
+        .replace(/\+/g, '\\+')
+        // 转义减号
+        .replace(/-/g, '\\-')
+        // 转义点号
+        .replace(/\./g, '\\.')
+        // 转义感叹号
+        .replace(/!/g, '\\!')
+        // 转义管道符
+        .replace(/\|/g, '\\|')
+        // 转义大于号
+        .replace(/>/g, '\\>')
+        // 转义小于号
+        .replace(/</g, '\\<')
+        // 转义等号
+        .replace(/=/g, '\\=')
+        // 转义波浪号
+        .replace(/~/g, '\\~');
+}
+
+// 统一代码块格式函数
+function formatCodeBlock(language, code) {
+    if (!code) return '';
+    
+    // 确保代码块前后有双换行，并且结束符号后也有换行
+    return `\n\n\`\`\`${language}\n${code}\n\`\`\`\n\n`;
+}
+
+// 确保行间距函数 - 处理多余换行
+function ensureLineSpacing(text) {
+    if (!text) return '';
+    
+    // 将多个连续换行替换为最多2个换行
+    return text.replace(/\n{3,}/g, '\n\n');
+}
+
 // 修改转换为 markdown 的函数
 function convertToMarkdown(element) {
     // 如果没有传入 element，直接返回空字符串
@@ -428,7 +504,7 @@ function convertToMarkdown(element) {
     return convertElementToMarkdown(element);
 }
 
-// 新增辅助函数处理单个素的转换
+// 新增辅助函数处理单个元素的转换
 function convertElementToMarkdown(element) {
     if (!element) return '';
 
@@ -437,7 +513,8 @@ function convertElementToMarkdown(element) {
     // 遍历所有子元素
     element.childNodes.forEach(node => {
         if (node.nodeType === Node.TEXT_NODE) {
-            markdown += node.textContent;
+            // 对普通文本应用Markdown转义
+            markdown += escapeMarkdownText(node.textContent);
         } else if (node.nodeType === Node.ELEMENT_NODE) {
             // 处理代码块
             if (node.classList?.contains('!overflow-visible') ||
@@ -447,6 +524,12 @@ function convertElementToMarkdown(element) {
                 markdown = markdown.trimEnd();
                 markdown += processCodeBlock(node);
             }
+            // 处理内联代码
+            else if (node.tagName === 'CODE' && !node.closest('PRE') && !node.closest('CODE-BLOCK')) {
+                // 内联代码：先解码HTML实体，然后用反引号包装
+                const decodedContent = decodeHtmlEntities(node.textContent);
+                markdown += '`' + decodedContent + '`';
+            }
             // 处理其他元素
             else {
                 markdown += convertElementToMarkdown(node);
@@ -454,7 +537,7 @@ function convertElementToMarkdown(element) {
         }
     });
 
-    return markdown;
+    return ensureLineSpacing(markdown);
 }
 
 // 专门处理Gemini元素的转换函数
@@ -466,7 +549,8 @@ function convertGeminiElementToMarkdown(element) {
     // 遍历所有子元素
     element.childNodes.forEach(node => {
         if (node.nodeType === Node.TEXT_NODE) {
-            markdown += node.textContent;
+            // 对普通文本应用Markdown转义
+            markdown += escapeMarkdownText(node.textContent);
         } else if (node.nodeType === Node.ELEMENT_NODE) {
             // 处理Gemini代码块
             if (node.tagName === 'CODE-BLOCK') {
@@ -486,44 +570,52 @@ function convertGeminiElementToMarkdown(element) {
                     case 'h5':
                     case 'h6':
                         const level = node.tagName.substring(1);
-                        markdown += `#${level} ${node.textContent.trim()}\n\n`;
+                        markdown += `#${level} ${escapeMarkdownText(node.textContent.trim())}\n\n`;
                         break;
                     case 'ul':
                         markdown += '\n';
                         node.querySelectorAll('li').forEach(li => {
-                            markdown += `- ${li.textContent.trim()}\n`;
+                            const liContent = convertGeminiElementToMarkdown(li).trim();
+                            markdown += `- ${liContent}\n`;
                         });
                         markdown += '\n';
                         break;
                     case 'ol':
                         markdown += '\n';
                         node.querySelectorAll('li').forEach((li, index) => {
-                            markdown += `${index + 1}. ${li.textContent.trim()}\n`;
+                            const liContent = convertGeminiElementToMarkdown(li).trim();
+                            markdown += `${index + 1}. ${liContent}\n`;
                         });
                         markdown += '\n';
                         break;
                     case 'pre':
                         // 可能是未包装在code-block中的代码
-                        markdown += `\`\`\`\n${node.textContent.trim()}\n\`\`\`\n\n`;
+                        markdown += formatCodeBlock('', node.textContent.trim());
                         break;
                     case 'code':
                         // 内联代码
                         if (!node.closest('pre') && !node.closest('code-block')) {
-                            markdown += `\`${node.textContent.trim()}\``;
+                            // 内联代码：先解码HTML实体，然后用反引号包装
+                            const decodedContent = decodeHtmlEntities(node.textContent.trim());
+                            markdown += `\`${decodedContent}\``;
                         } else {
                             markdown += convertGeminiElementToMarkdown(node);
                         }
                         break;
                     case 'a':
-                        markdown += `[${node.textContent.trim()}](${node.href})`;
+                        markdown += `[${escapeMarkdownText(node.textContent.trim())}](${node.href})`;
                         break;
                     case 'strong':
                     case 'b':
-                        markdown += `**${node.textContent.trim()}**`;
+                        // 处理嵌套内容，而不是直接使用textContent
+                        const boldContent = convertGeminiElementToMarkdown(node).trim();
+                        markdown += `**${boldContent}**`;
                         break;
                     case 'em':
                     case 'i':
-                        markdown += `*${node.textContent.trim()}*`;
+                        // 处理嵌套内容，而不是直接使用textContent
+                        const italicContent = convertGeminiElementToMarkdown(node).trim();
+                        markdown += `*${italicContent}*`;
                         break;
                     case 'table':
                         // 简单表格处理
@@ -531,7 +623,7 @@ function convertGeminiElementToMarkdown(element) {
                         const rows = node.querySelectorAll('tr');
                         rows.forEach((row, rowIndex) => {
                             const cells = row.querySelectorAll('th, td');
-                            const rowContent = Array.from(cells).map(cell => cell.textContent.trim()).join(' | ');
+                            const rowContent = Array.from(cells).map(cell => escapeMarkdownText(cell.textContent.trim())).join(' | ');
                             markdown += `| ${rowContent} |\n`;
                             if (rowIndex === 0) {
                                 markdown += `| ${Array.from(cells).map(() => '---').join(' | ')} |\n`;
@@ -546,7 +638,7 @@ function convertGeminiElementToMarkdown(element) {
         }
     });
 
-    return markdown.trim();
+    return ensureLineSpacing(markdown.trim());
 }
 
 // 修改代码块处理函数
@@ -570,8 +662,8 @@ function processCodeBlock(codeBlock) {
         codeText = codeContent.textContent.trim();
     }
 
-    // 返回格式化后的 markdown 代码块，确保前后都有换行
-    return `\n\`\`\`${language}\n${codeText}\n\`\`\`\n`;
+    // 使用统一的代码块格式函数
+    return formatCodeBlock(language, codeText);
 }
 
 // 处理Gemini代码块的专用函数
@@ -589,8 +681,8 @@ function processGeminiCodeBlock(codeBlock) {
         codeText = codeContentElement.innerText.trim();
     }
 
-    // 返回格式化后的 markdown 代码块
-    return `\n\`\`\`${language}\n${codeText}\n\`\`\`\n`;
+    // 使用统一的代码块格式函数
+    return formatCodeBlock(language, codeText);
 }
 
 // 修改复制选中内容的函数
