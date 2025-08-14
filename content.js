@@ -565,11 +565,11 @@ function convertElementToMarkdown(element) {
                 markdown += escapeMarkdownText(text);
             }
         } else if (node.nodeType === Node.ELEMENT_NODE) {
-            // 处理代码块
+            // 处理代码块 - 改进检测逻辑
             if (node.tagName === 'PRE' || 
                 node.tagName === 'CODE-BLOCK' || 
                 node.classList?.contains('!overflow-visible') ||
-                node.querySelector('[class*="highlighter"]')) {
+                (node.querySelector('[class*="highlighter"]') && node.tagName === 'PRE')) {
                 // 移除代码块前后可能存在的多余换行
                 markdown = markdown.trimEnd();
                 markdown += processCodeBlock(node);
@@ -645,7 +645,30 @@ function processHtmlElement(node) {
         case 'div':
         case 'span':
             // 对于纯布局元素，只处理内容
-            return convertElementToMarkdown(node);
+            // 但需要特殊处理包含代码块的div/span
+            if (node.querySelector('[class*="highlighter"]') || node.querySelector('pre, code-block')) {
+                // 如果包含代码块，先处理文本内容，再处理代码块
+                let content = '';
+                node.childNodes.forEach(child => {
+                    if (child.nodeType === Node.TEXT_NODE) {
+                        const text = child.textContent.trim();
+                        if (text) {
+                            content += escapeMarkdownText(text) + ' ';
+                        }
+                    } else if (child.nodeType === Node.ELEMENT_NODE) {
+                        if (child.tagName === 'PRE' || 
+                            child.tagName === 'CODE-BLOCK' || 
+                            child.querySelector('[class*="highlighter"]')) {
+                            content += processCodeBlock(child);
+                        } else {
+                            content += convertElementToMarkdown(child);
+                        }
+                    }
+                });
+                return content.trim();
+            } else {
+                return convertElementToMarkdown(node);
+            }
             
         case 'br':
             return '\n';
@@ -683,11 +706,13 @@ function processComplexListItem(liElement) {
                 content += escapeMarkdownText(text) + ' ';
             }
         } else if (node.nodeType === Node.ELEMENT_NODE) {
-            if (node.tagName === 'PRE' || node.querySelector('[class*="highlighter"]')) {
+            if (node.tagName === 'PRE' || 
+                node.tagName === 'CODE-BLOCK' || 
+                node.querySelector('[class*="highlighter"]')) {
                 // 处理代码块
                 content += processCodeBlock(node);
             } else {
-                // 处理其他元素
+                // 处理其他元素 - 递归处理，确保不丢失文本内容
                 content += convertElementToMarkdown(node) + ' ';
             }
         }
