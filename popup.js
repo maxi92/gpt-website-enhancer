@@ -1,7 +1,55 @@
+// 检查网站是否受支持
+function isSupportedSite(url) {
+    if (!url) return false;
+    
+    const supportedUrls = [
+        'https://chatgpt.com/*',
+        'https://www.tongyi.com/*',
+        'https://gemini.google.com/*'
+    ];
+    
+    return supportedUrls.some(pattern => {
+        const regex = new RegExp(pattern.replace(/\*/g, '.*'));
+        return regex.test(url);
+    });
+}
+
+// 显示不支持网站的提示
+function showUnsupportedSite() {
+    const body = document.body;
+    if (body) {
+        // 清空整个body内容
+        body.innerHTML = '';
+        
+        // 添加不支持网站的提示
+        const unsupportedDiv = document.createElement('div');
+        unsupportedDiv.className = 'unsupported-site';
+        unsupportedDiv.innerHTML = `
+            <h3>⚠️ 不支持此网站</h3>
+            <p>AI Chat Enhancer 仅支持以下网站：</p>
+            <ul>
+                <li>🤖 ChatGPT (chatgpt.com)</li>
+                <li>🔷 通义千问 (www.tongyi.com)</li>
+                <li>💎 Gemini (gemini.google.com)</li>
+            </ul>
+            <p>请访问支持的网站以使用此插件功能。</p>
+        `;
+        body.appendChild(unsupportedDiv);
+    }
+}
+
 // 初始化popup
 function initializePopup() {
-    // 获取当前标签页的设置
+    // 首先检查当前网站是否受支持
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        const currentUrl = tabs[0]?.url;
+        
+        if (!isSupportedSite(currentUrl)) {
+            showUnsupportedSite();
+            return;
+        }
+        
+        // 获取当前标签页的设置
         chrome.tabs.sendMessage(tabs[0].id, { action: 'getSettings' }, function(response) {
             if (chrome.runtime.lastError) {
                 console.error('获取设置失败:', chrome.runtime.lastError);
