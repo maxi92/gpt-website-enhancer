@@ -1246,8 +1246,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'getMarkdown') {
         try {
             const hostname = window.location.hostname;
-            let markdown = '# AI对话记录\n\n';
+            let markdown = '';
             let conversations = [];
+            let currentTitle = null; // 用于存储当前对话标题
 
             if (hostname.includes('chatgpt.com')) {
                 // ChatGPT页面的处理
@@ -1311,6 +1312,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 // Gemini页面的处理
                 const containers = document.querySelectorAll('div.conversation-container');
                 
+                // 获取当前对话标题
+                currentTitle = getGeminiCurrentConversationTitle();
+                
                 containers.forEach((container, index) => {
                     const userQuery = container.querySelector('user-query .query-text');
                     const modelResponse = container.querySelector('model-response .model-response-text');
@@ -1330,6 +1334,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         markdown += '---\n\n';
                     }
                 });
+            }
+
+            // 如果是Gemini页面且有对话标题，在最前面添加标题
+            if (hostname.includes('gemini.google.com') && currentTitle) {
+                markdown = `# ${currentTitle}\n\n${markdown}`;
             }
 
             // 如果需要生成目录，在最前面添加目录
@@ -1571,6 +1580,20 @@ function getFullConversationContent(questionElement, answerElement) {
     }
 
     return { question, answer };
+}
+
+// 获取Gemini当前对话标题
+function getGeminiCurrentConversationTitle() {
+    const selectedTitleElement = document.querySelector('.conversation.selected .conversation-title');
+    
+    if (selectedTitleElement) {
+        const title = selectedTitleElement.innerText.trim();
+        console.log("找到当前Gemini对话标题:", title);
+        return title;
+    } else {
+        console.log("未找到当前选中的Gemini对话。");
+        return null;
+    }
 }
 
 // Gemini专用：加载所有历史对话
