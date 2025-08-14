@@ -602,8 +602,13 @@ function processHtmlElement(node) {
             
         case 'strong':
         case 'b':
-            const boldContent = convertElementToMarkdown(node).trim();
-            return `**${boldContent}**`;
+            // 检查是否包含code标签，如果包含则只保留代码格式
+            if (node.querySelector('code')) {
+                return convertElementToMarkdown(node).trim();
+            } else {
+                const boldContent = convertElementToMarkdown(node).trim();
+                return `**${boldContent}**`;
+            }
             
         case 'em':
         case 'i':
