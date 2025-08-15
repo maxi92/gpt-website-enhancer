@@ -46,6 +46,134 @@
     user-select: none;
 }
 
+.sidebar-title-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sidebar-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a73e8;
+}
+
+.conversation-count {
+    font-size: 12px;
+    color: #5f6368;
+    font-weight: 400;
+}
+
+/* 搜索框样式 */
+.sidebar-search-container {
+    padding: 12px 16px;
+    background: #ffffff;
+    border-bottom: 1px solid #e8f0fe;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sidebar-search-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #dadce0;
+    border-radius: 20px;
+    font-size: 13px;
+    outline: none;
+    transition: all 0.2s ease;
+    background: #f8f9fa;
+}
+
+.sidebar-search-input:focus {
+    border-color: #1a73e8;
+    background: #ffffff;
+    box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.1);
+}
+
+.search-results-count {
+    font-size: 12px;
+    color: #5f6368;
+    min-width: 80px;
+    text-align: right;
+}
+
+/* 全选按钮样式 */
+.select-all-button {
+    background: #34a853 !important;
+    color: white !important;
+}
+
+.select-all-button:hover {
+    background: #2d8544 !important;
+}
+
+/* 多选模式下搜索框显示 */
+#ai-chat-enhancer-sidebar.multi-select-mode .sidebar-search-container {
+    display: flex !important;
+}
+
+/* 范围选择的高亮效果 */
+.conversation-group.range-selecting {
+    background: rgba(26, 115, 232, 0.05);
+    border-left: 2px solid #1a73e8;
+}
+
+/* 搜索框为空时的提示文字 */
+.sidebar-search-input::placeholder {
+    color: #9aa0a6;
+    font-style: italic;
+}
+
+/* 搜索结果计数动画 */
+.search-results-count {
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.search-results-count.has-results {
+    color: #1a73e8;
+}
+
+/* 对话组在搜索过滤时的过渡效果 */
+.conversation-group {
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.conversation-group[style*="display: none"] {
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+/* 多选模式下的增强视觉反馈 */
+#ai-chat-enhancer-sidebar.multi-select-mode .conversation-item:hover {
+    background: linear-gradient(to right, #e8f0fe, #f1f3f4) !important;
+}
+
+#ai-chat-enhancer-sidebar.multi-select-mode .conversation-checkbox:checked ~ .conversation-item {
+    background: linear-gradient(to right, #e8f0fe, #ffffff) !important;
+    border-left: 3px solid #1a73e8;
+}
+
+/* 计数显示的动画效果 */
+.conversation-count {
+    transition: all 0.3s ease;
+}
+
+.conversation-count.updating {
+    transform: scale(1.1);
+    color: #1a73e8;
+}
+
+/* 按钮的活跃状态 */
+.sidebar-button:active {
+    transform: scale(0.95);
+}
+
+.select-all-button:active {
+    transform: scale(0.95);
+}
+
 .sidebar-header-buttons {
     display: flex;
     gap: 8px;

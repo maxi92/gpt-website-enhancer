@@ -10,11 +10,19 @@ function createSidebar() {
     sidebar.innerHTML = `
         <div class="sidebar-resizer"></div>
         <div class="sidebar-header">
-            <span>对话导航</span>
+            <div class="sidebar-title-section">
+                <span class="sidebar-title">对话导航</span>
+                <div class="conversation-count" id="conversationCount">总计：0 条对话</div>
+            </div>
             <div class="sidebar-header-buttons">
                 <button id="multiSelect" class="sidebar-button">多选</button>
+                <button id="selectAll" class="sidebar-button select-all-button" style="display: none;">全选</button>
                 <button id="copySelected" class="sidebar-button copy-selected" disabled>复制选中</button>
             </div>
+        </div>
+        <div class="sidebar-search-container" id="searchContainer" style="display: none;">
+            <input type="text" class="sidebar-search-input" id="searchInput" placeholder="搜索对话内容...">
+            <div class="search-results-count" id="searchResultsCount"></div>
         </div>
         <div class="sidebar-content"></div>
     `;
@@ -106,10 +114,40 @@ function createSidebar() {
     // 添加多选按钮事件监听
     const multiSelectButton = sidebar.querySelector('#multiSelect');
     const copySelectedButton = sidebar.querySelector('#copySelected');
+    const selectAllButton = sidebar.querySelector('#selectAll');
 
     multiSelectButton.addEventListener('click', function () {
         const isMultiSelectMode = sidebar.classList.toggle('multi-select-mode');
         this.textContent = isMultiSelectMode ? '取消多选' : '多选';
+
+        // 显示/隐藏全选按钮和搜索框
+        if (isMultiSelectMode) {
+            selectAllButton.style.display = 'block';
+            document.getElementById('searchContainer').style.display = 'flex';
+            // 进入多选模式时，确保所有对话都可见，除非用户有搜索输入
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput.value.trim() === '') {
+                const allGroups = sidebar.querySelectorAll('.conversation-group');
+                allGroups.forEach(group => {
+                    group.style.display = 'block';
+                });
+                document.getElementById('searchResultsCount').textContent = '';
+                currentSearchTerm = '';
+            }
+        } else {
+            selectAllButton.style.display = 'none';
+            document.getElementById('searchContainer').style.display = 'none';
+            // 清空搜索框
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchResultsCount').textContent = '';
+            // 恢复显示所有对话
+            const allGroups = sidebar.querySelectorAll('.conversation-group');
+            allGroups.forEach(group => {
+                group.style.display = 'block';
+            });
+            // 重置搜索状态
+            currentSearchTerm = '';
+        }
 
         // 重置所有复选框的状态
         const checkboxes = sidebar.querySelectorAll('.conversation-checkbox');
@@ -117,14 +155,64 @@ function createSidebar() {
             checkbox.checked = false;
         });
 
-        // 更新复制按钮状态
+        // 重置范围选择状态
+        lastSelectedIndex = -1;
+
+        // 更新复制按钮状态和计数显示
         copySelectedButton.disabled = true;
+        updateConversationCount();
+        
+        console.log('🔄 [多选模式] 切换:', { isMultiSelectMode });
+    });
+
+    // 添加全选按钮事件监听器
+    selectAllButton.addEventListener('click', function () {
+        // 获取所有可见的对话组（搜索过滤后的），然后选择其中的复选框
+        const visibleGroups = sidebar.querySelectorAll('.conversation-group:not([style*="display: none"])');
+        const visibleCheckboxes = Array.from(visibleGroups).map(group => group.querySelector('.conversation-checkbox')).filter(Boolean);
+        const totalVisibleCheckboxes = visibleCheckboxes.length;
+        
+        // 计算当前可见复选框中已选中的数量
+        const checkedVisibleCount = visibleCheckboxes.filter(checkbox => checkbox.checked).length;
+        
+        // 如果全部选中或者部分选中，则取消全选，否则全选
+        const shouldSelectAll = checkedVisibleCount === 0 || checkedVisibleCount < totalVisibleCheckboxes;
+        
+        visibleCheckboxes.forEach(checkbox => {
+            checkbox.checked = shouldSelectAll;
+        });
+        
+        // 如果是全选操作，重置范围选择状态
+        if (shouldSelectAll) {
+            lastSelectedIndex = -1;
+        }
+        
+        // 更新按钮文字
+        this.textContent = shouldSelectAll ? '取消全选' : '全选';
+        
+        // 更新复制按钮状态和计数
+        updateCopyButtonState();
+        
+        console.log('🔄 [全选操作] 状态:', { 
+            shouldSelectAll, 
+            totalVisibleCheckboxes, 
+            checkedVisibleCount,
+            totalGroups: sidebar.querySelectorAll('.conversation-group').length,
+            visibleGroups: visibleGroups.length,
+            searchActive: !!currentSearchTerm
+        });
     });
 
     // 添加复制选中按钮事件监听器 - 调用新的复制函数
     copySelectedButton.addEventListener('click', copySelectedConversations);
 
     document.body.appendChild(sidebar);
+
+    // 添加搜索框事件监听器
+    const searchInput = document.getElementById('searchInput');
+    searchInput.addEventListener('input', function() {
+        debouncedSearch(this.value);
+    });
 
     // 从存储中读取并应用保存的宽度
     chrome.storage.sync.get(['sidebarWidth'], (result) => {
@@ -146,6 +234,66 @@ function copyToClipboard(text) {
     document.body.removeChild(textarea);
 }
 
+// 搜索过滤功能
+let searchTimeout;
+let currentSearchTerm = '';
+
+// 范围选择功能
+let lastSelectedIndex = -1;
+let isShiftClick = false;
+
+// 执行搜索过滤
+function performSearch(searchTerm) {
+    const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
+    const groups = sidebar.querySelectorAll('.conversation-group');
+    const resultsCountElement = document.getElementById('searchResultsCount');
+    
+    currentSearchTerm = searchTerm.toLowerCase().trim();
+    let visibleCount = 0;
+    
+    groups.forEach(group => {
+        const questionText = group.querySelector('.conversation-item.user .conversation-text').textContent.toLowerCase();
+        const answerText = group.querySelector('.conversation-item.assistant .conversation-text').textContent.toLowerCase();
+        
+        const matchesSearch = currentSearchTerm === '' || 
+                            questionText.includes(currentSearchTerm) || 
+                            answerText.includes(currentSearchTerm);
+        
+        if (matchesSearch) {
+            group.style.display = 'block';
+            visibleCount++;
+        } else {
+            group.style.display = 'none';
+        }
+    });
+    
+    // 更新搜索结果计数
+    if (currentSearchTerm === '') {
+        resultsCountElement.textContent = '';
+        resultsCountElement.classList.remove('has-results');
+    } else {
+        resultsCountElement.textContent = `找到 ${visibleCount} 条`;
+        resultsCountElement.classList.add('has-results');
+    }
+    
+    console.log('🔍 [搜索过滤] 完成:', { 
+        searchTerm: currentSearchTerm, 
+        totalGroups: groups.length, 
+        visibleCount 
+    });
+    
+    // 更新主计数显示
+    updateConversationCount();
+}
+
+// 防抖搜索函数
+function debouncedSearch(searchTerm) {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        performSearch(searchTerm);
+    }, 300);
+}
+
 // 将选中的对话转换为Markdown
 function convertSelectedToMarkdown(groups) {
     let markdown = '# AI对话记录\n\n';
@@ -161,11 +309,52 @@ function convertSelectedToMarkdown(groups) {
     return markdown.trim();
 }
 
+// 更新计数显示
+function updateConversationCount() {
+    const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
+    const countElement = sidebar.querySelector('#conversationCount');
+    const isMultiSelect = sidebar.classList.contains('multi-select-mode');
+    
+    // 获取可见的对话组（搜索过滤后的）
+    const visibleGroups = sidebar.querySelectorAll('.conversation-group:not([style*="display: none"])');
+    const visibleCount = visibleGroups.length;
+    
+    // 计算可见对话组中已选中的数量
+    const visibleCheckboxes = Array.from(visibleGroups).map(group => group.querySelector('.conversation-checkbox')).filter(Boolean);
+    const selectedCount = visibleCheckboxes.filter(checkbox => checkbox.checked).length;
+    
+    // 如果有搜索过滤，显示过滤后的数量
+    const hasSearchFilter = currentSearchTerm && currentSearchTerm.trim() !== '';
+    const displayCount = hasSearchFilter && isMultiSelect ? visibleCount : sidebar.querySelectorAll('.conversation-group').length;
+    
+    const newText = isMultiSelect ? 
+        `已选：${selectedCount} / ${displayCount} 条` : 
+        `总计：${sidebar.querySelectorAll('.conversation-group').length} 条对话`;
+    
+    // 如果文字有变化，添加动画效果
+    if (countElement.textContent !== newText) {
+        countElement.classList.add('updating');
+        countElement.textContent = newText;
+        
+        // 移除动画类
+        setTimeout(() => {
+            countElement.classList.remove('updating');
+        }, 300);
+    }
+    
+    console.log('📊 [计数更新] 模式:', { isMultiSelect, selectedCount, totalGroups });
+}
+
 // 更新复制按钮状态
 function updateCopyButtonState() {
     const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
     const copyButton = sidebar.querySelector('#copySelected');
-    const selectedCount = sidebar.querySelectorAll('.conversation-checkbox:checked').length;
+    
+    // 只计算可见对话组中已选中的数量
+    const visibleGroups = sidebar.querySelectorAll('.conversation-group:not([style*="display: none"])');
+    const visibleCheckboxes = Array.from(visibleGroups).map(group => group.querySelector('.conversation-checkbox')).filter(Boolean);
+    const selectedCount = visibleCheckboxes.filter(checkbox => checkbox.checked).length;
+    
     copyButton.disabled = selectedCount === 0;
     
     // 更新选中状态的视觉反馈
@@ -178,6 +367,9 @@ function updateCopyButtonState() {
             group.classList.remove('selected');
         }
     });
+    
+    // 同时更新计数显示
+    updateConversationCount();
     
     console.log('🔄 [状态更新] 选中状态:', { selectedCount, totalGroups: groups.length });
 }
@@ -461,6 +653,9 @@ function updateSidebar() {
             groups.forEach(group => {
                 group.addEventListener('click', handleConversationClick);
             });
+            
+            // 更新计数显示
+            updateConversationCount();
         }
     } catch (error) {
         console.error('updateSidebar 发生未预期的错误:', error);
@@ -1825,12 +2020,50 @@ function handleConversationClick(event) {
         console.log('🎯 [多选模式] 点击对话项进行选择');
         const groupCheckbox = group.querySelector('.conversation-checkbox');
         if (groupCheckbox) {
-            const newCheckedState = !groupCheckbox.checked;
-            groupCheckbox.checked = newCheckedState;
-            console.log('✅ [多选模式] 选择状态变更:', { 
-                index: group.dataset.index, 
-                newState: newCheckedState 
-            });
+            const currentIndex = parseInt(group.dataset.index);
+            const isShiftPressed = event.shiftKey;
+            
+            if (isShiftPressed && lastSelectedIndex !== -1) {
+                // Shift + 点击：范围选择
+                console.log('🔗 [范围选择] Shift+点击检测:', { 
+                    lastIndex: lastSelectedIndex, 
+                    currentIndex: currentIndex 
+                });
+                
+                const startIndex = Math.min(lastSelectedIndex, currentIndex);
+                const endIndex = Math.max(lastSelectedIndex, currentIndex);
+                
+                // 选中范围内的所有对话
+                const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
+                const allGroups = sidebar.querySelectorAll('.conversation-group');
+                
+                for (let i = startIndex; i <= endIndex; i++) {
+                    const targetGroup = allGroups[i];
+                    if (targetGroup && targetGroup.style.display !== 'none') { // 只选择可见的
+                        const targetCheckbox = targetGroup.querySelector('.conversation-checkbox');
+                        if (targetCheckbox) {
+                            targetCheckbox.checked = true;
+                        }
+                    }
+                }
+                
+                console.log('🔗 [范围选择] 已选择范围:', { 
+                    startIndex, 
+                    endIndex, 
+                    totalCount: endIndex - startIndex + 1 
+                });
+            } else {
+                // 普通点击：切换单个选中状态
+                const newCheckedState = !groupCheckbox.checked;
+                groupCheckbox.checked = newCheckedState;
+                console.log('✅ [多选模式] 单项选择状态变更:', { 
+                    index: currentIndex, 
+                    newState: newCheckedState 
+                });
+            }
+            
+            // 更新最后选择的索引
+            lastSelectedIndex = currentIndex;
             updateCopyButtonState();
         } else {
             console.warn('⚠️ [多选模式] 未找到复选框元素');
