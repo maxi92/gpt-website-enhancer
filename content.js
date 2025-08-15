@@ -121,49 +121,8 @@ function createSidebar() {
         copySelectedButton.disabled = true;
     });
 
-    // 添加复制选中按钮事件监听
-    copySelectedButton.addEventListener('click', function () {
-        const selectedGroups = sidebar.querySelectorAll('.conversation-checkbox:checked');
-        if (selectedGroups.length === 0) return;
-
-        let copyText = '# AI对话记录\n\n';
-        selectedGroups.forEach(checkbox => {
-            const group = checkbox.closest('.conversation-group');
-            const index = parseInt(group.dataset.index);
-
-            // 获取原始元素
-            const hostname = window.location.hostname;
-            let questionElement, answerElement;
-
-            if (hostname.includes('chatgpt.com')) {
-                const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
-                questionElement = conversations[index * 2];
-                answerElement = conversations[index * 2 + 1];
-            } else if (hostname.includes('www.tongyi.com')) {
-                const siteConfig = getCurrentSiteConfig();
-                if (siteConfig) {
-                    const questions = document.querySelectorAll(siteConfig.humanMessageSelector);
-                    const answers = document.querySelectorAll(siteConfig.aiMessageSelector);
-                    questionElement = questions[index];
-                    answerElement = answers[index];
-                }
-            }
-
-            if (questionElement && answerElement) {
-                const { question, answer } = getFullConversationContent(questionElement, answerElement);
-                copyText += `## 对话 ${index + 1}\n\n**问题**：${question}\n\n**回答**：${answer}\n\n---\n\n`;
-            }
-        });
-
-        navigator.clipboard.writeText(copyText.trim()).then(() => {
-            const button = this;
-            const originalText = button.textContent;
-            button.textContent = '已复制！';
-            setTimeout(() => {
-                button.textContent = originalText;
-            }, 2000);
-        });
-    });
+    // 添加复制选中按钮事件监听器 - 调用新的复制函数
+    copySelectedButton.addEventListener('click', copySelectedConversations);
 
     document.body.appendChild(sidebar);
 
@@ -1043,33 +1002,106 @@ function processGeminiCodeBlock(codeBlock) {
     return formatCodeBlock(language, codeText);
 }
 
-// 修改复制选中内容的函数
+// 复制选中对话的函数 - 复用getMarkdown逻辑
 function copySelectedConversations() {
-    const selectedGroups = document.querySelectorAll('.conversation-group .conversation-checkbox:checked');
-    let markdown = '';
+    const selectedGroups = document.querySelectorAll('.conversation-checkbox:checked');
+    if (selectedGroups.length === 0) return;
+
+    let markdown = '# AI对话记录\n\n';
+    const hostname = window.location.hostname;
 
     selectedGroups.forEach(checkbox => {
         const group = checkbox.closest('.conversation-group');
-        const items = group.querySelectorAll('.conversation-item');
+        const index = parseInt(group.dataset.index);
 
-        items.forEach(item => {
-            const isUser = item.classList.contains('user');
-            const prefix = isUser ? '**Q:**' : '**A:**';
+        markdown += `## 对话 ${index + 1}\n\n`;
 
-            // 获取对应的原始对话内容
-            const index = parseInt(group.dataset.index);
-            const conversations = document.querySelectorAll(SELECTORS.MESSAGE_CONTAINER);
-            const originalMessage = conversations[index * 2 + (isUser ? 0 : 1)];
-
-            if (originalMessage) {
-                const content = convertElementToMarkdown(originalMessage);
-                markdown += `${prefix} ${content}\n\n`;
+        // 根据不同网站使用相应的转换逻辑
+        if (hostname.includes('chatgpt.com')) {
+            // ChatGPT处理逻辑 - 复用getMarkdown中的代码
+            const userMessages = document.querySelectorAll('[data-message-author-role="user"]');
+            const aiMessages = document.querySelectorAll('[data-message-author-role="assistant"]');
+            
+            if (userMessages[index]) {
+                const userMessage = userMessages[index];
+                markdown += '**Q:** ';
+                markdown += convertElementToMarkdown(userMessage) + '\n\n';
             }
-        });
+            
+            if (aiMessages[index]) {
+                const assistantMessage = aiMessages[index];
+                markdown += '**A:** ';
+                markdown += convertElementToMarkdown(assistantMessage) + '\n\n';
+            }
+        } else if (hostname.includes('www.tongyi.com')) {
+            // 通义千问处理逻辑 - 复用getMarkdown中的代码
+            const siteConfig = getCurrentSiteConfig();
+            if (siteConfig) {
+                const questions = document.querySelectorAll(siteConfig.humanMessageSelector);
+                const answers = document.querySelectorAll(siteConfig.aiMessageSelector);
+                
+                if (questions[index] && answers[index]) {
+                    const question = questions[index];
+                    const answer = answers[index];
+                    
+                    const questionElement = question.querySelector(siteConfig.messageContentSelector.human);
+                    const answerElement = answer.querySelector(siteConfig.messageContentSelector.ai);
+                    
+                    if (questionElement) {
+                        markdown += '**Q:** ';
+                        markdown += convertElementToMarkdown(questionElement) + '\n\n';
+                    }
+                    
+                    if (answerElement) {
+                        markdown += '**A:** ';
+                        markdown += convertElementToMarkdown(answerElement) + '\n\n';
+                    }
+                }
+            }
+        } else if (hostname.includes('gemini.google.com')) {
+            // Gemini处理逻辑 - 复用getMarkdown中的代码
+            const containers = document.querySelectorAll('div.conversation-container');
+            if (containers[index]) {
+                const container = containers[index];
+                const userQuery = container.querySelector('user-query .query-text');
+                const modelResponse = container.querySelector('model-response .model-response-text');
+                
+                if (userQuery) {
+                    markdown += '**Q:** ';
+                    markdown += convertElementToMarkdown(userQuery) + '\n\n';
+                }
+                
+                if (modelResponse) {
+                    markdown += '**A:** ';
+                    markdown += convertGeminiElementToMarkdown(modelResponse) + '\n\n';
+                }
+            }
+        }
+        
+        markdown += '---\n\n';
     });
 
-    navigator.clipboard.writeText(markdown);
-    showCopySuccess();
+    // 复制到剪贴板并提供反馈
+    navigator.clipboard.writeText(markdown.trim()).then(() => {
+        const copyButton = document.querySelector('#copySelected');
+        if (copyButton) {
+            const originalText = copyButton.textContent;
+            copyButton.textContent = '已复制！';
+            setTimeout(() => {
+                copyButton.textContent = originalText;
+            }, 2000);
+        }
+    }).catch(error => {
+        console.error('复制失败:', error);
+        const copyButton = document.querySelector('#copySelected');
+        if (copyButton) {
+            const originalText = copyButton.textContent;
+            copyButton.textContent = '复制失败';
+            setTimeout(() => {
+                copyButton.textContent = originalText;
+            }, 2000);
+        }
+    });
 }
 
 // 存储当前宽度设置
