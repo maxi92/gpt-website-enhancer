@@ -167,6 +167,19 @@ function updateCopyButtonState() {
     const copyButton = sidebar.querySelector('#copySelected');
     const selectedCount = sidebar.querySelectorAll('.conversation-checkbox:checked').length;
     copyButton.disabled = selectedCount === 0;
+    
+    // 更新选中状态的视觉反馈
+    const groups = sidebar.querySelectorAll('.conversation-group');
+    groups.forEach(group => {
+        const checkbox = group.querySelector('.conversation-checkbox');
+        if (checkbox && checkbox.checked) {
+            group.classList.add('selected');
+        } else {
+            group.classList.remove('selected');
+        }
+    });
+    
+    console.log('🔄 [状态更新] 选中状态:', { selectedCount, totalGroups: groups.length });
 }
 
 // 截断文本，为问题和回答设置不同的长度限制
@@ -1779,28 +1792,29 @@ function waitForGeminiContentLoad(scrollContainer) {
 
 // 修改点击事件处理函数
 function handleConversationClick(event) {
-    console.log('点击事件触发');
+    console.log('🖱️ [对话点击] 事件触发');
     const checkbox = event.target.closest('.conversation-checkbox');
     const group = event.target.closest('.conversation-group');
 
-    console.log('点击元素信息:', {
+    console.log('📋 [对话点击] 元素信息:', {
         isCheckbox: !!checkbox,
         hasGroup: !!group,
         targetElement: event.target.tagName,
-        targetClass: event.target.className
+        targetClass: event.target.className,
+        targetText: event.target.textContent?.substring(0, 50) + '...'
     });
 
     if (!group) {
-        console.log('未找到conversation-group元素，退出处理');
+        console.warn('⚠️ [对话点击] 未找到conversation-group元素，退出处理');
         return;
     }
 
     const isMultiSelect = document.getElementById('ai-chat-enhancer-sidebar').classList.contains('multi-select-mode');
-    console.log('是否多选模式:', isMultiSelect);
+    console.log('🔍 [对话点击] 模式状态:', { isMultiSelectMode: isMultiSelect });
 
     // 处理复选框点击
     if (checkbox) {
-        console.log('处理复选框点击');
+        console.log('✅ [复选框] 直接点击复选框，状态:', checkbox.checked);
         event.stopPropagation();
         updateCopyButtonState();
         return;
@@ -1808,11 +1822,18 @@ function handleConversationClick(event) {
 
     // 处理多选模式
     if (isMultiSelect) {
-        console.log('处理多选模式点击');
+        console.log('🎯 [多选模式] 点击对话项进行选择');
         const groupCheckbox = group.querySelector('.conversation-checkbox');
         if (groupCheckbox) {
-            groupCheckbox.checked = !groupCheckbox.checked;
+            const newCheckedState = !groupCheckbox.checked;
+            groupCheckbox.checked = newCheckedState;
+            console.log('✅ [多选模式] 选择状态变更:', { 
+                index: group.dataset.index, 
+                newState: newCheckedState 
+            });
             updateCopyButtonState();
+        } else {
+            console.warn('⚠️ [多选模式] 未找到复选框元素');
         }
         return;
     }
@@ -1820,29 +1841,37 @@ function handleConversationClick(event) {
     // 处理导航点击
     const index = parseInt(group.dataset.index);
     const hostname = window.location.hostname;
-    console.log('处理导航点击:', {
+    console.log('🧭 [导航模式] 点击对话项进行跳转:', {
         index: index,
         hostname: hostname
     });
 
     if (hostname.includes('chatgpt.com')) {
         try {
+            console.log('🤖 [ChatGPT] 开始处理导航跳转');
             // 优先使用我们注入的锚点属性进行定位，更稳健
             const targetId = group.getAttribute('data-target-id');
             let targetConversation = null;
 
             if (targetId) {
                 targetConversation = document.querySelector(`[data-ai-enhancer-target-id="${CSS.escape(targetId)}"]`);
+                console.log('🎯 [ChatGPT] 通过锚点定位:', { targetId, found: !!targetConversation });
             }
 
             // 回退：使用新的选择器逻辑
             if (!targetConversation) {
-                console.log('未通过锚点找到元素，回退到新选择器逻辑');
+                console.log('🔄 [ChatGPT] 未通过锚点找到元素，回退到新选择器逻辑');
                 const userMessages = document.querySelectorAll('[data-message-author-role="user"]');
                 targetConversation = userMessages[index];
+                console.log('📋 [ChatGPT] 通过索引定位:', { 
+                    index, 
+                    totalMessages: userMessages.length, 
+                    found: !!targetConversation 
+                });
             }
 
             if (targetConversation && typeof targetConversation.scrollIntoView === 'function') {
+                console.log('✅ [ChatGPT] 成功定位，开始滚动');
                 targetConversation.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
                 // 注入并应用高亮样式（非必需，仅视觉反馈）
@@ -1850,39 +1879,58 @@ function handleConversationClick(event) {
                 targetConversation.classList.add('ai-enhancer-highlight');
                 setTimeout(() => targetConversation.classList.remove('ai-enhancer-highlight'), 1600);
             } else {
-                console.warn('无法定位到目标对话元素，使用估算滚动');
+                console.warn('⚠️ [ChatGPT] 无法定位到目标对话元素，使用估算滚动');
                 const estimatedPosition = Math.max(0, index * 300);
                 window.scrollTo({ top: estimatedPosition, behavior: 'smooth' });
             }
         } catch (error) {
-            console.error('处理ChatGPT对话时发生错误:', error);
+            console.error('❌ [ChatGPT] 处理对话时发生错误:', error);
         }
     } else if (hostname.includes('www.tongyi.com')) {
+        console.log('🔷 [通义千问] 开始处理导航跳转');
         const siteConfig = getCurrentSiteConfig();
         if (siteConfig) {
             const questions = document.querySelectorAll(siteConfig.humanMessageSelector);
             const targetQuestion = questions[index];
+            console.log('📋 [通义千问] 定位结果:', { 
+                index, 
+                totalQuestions: questions.length, 
+                found: !!targetQuestion 
+            });
             if (targetQuestion) {
+                console.log('✅ [通义千问] 成功定位，开始滚动');
                 targetQuestion.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+                console.warn('⚠️ [通义千问] 未找到目标问题');
             }
+        } else {
+            console.warn('⚠️ [通义千问] 未获取站点配置');
         }
     } else if (hostname.includes('gemini.google.com')) {
         try {
+            console.log('💎 [Gemini] 开始处理导航跳转');
             // 使用统一的锚点定位机制
             const targetId = group.getAttribute('data-target-id');
             let targetConversation = null;
 
             if (targetId) {
                 targetConversation = document.querySelector(`[data-ai-enhancer-target-id="${CSS.escape(targetId)}"]`);
+                console.log('🎯 [Gemini] 通过锚点定位:', { targetId, found: !!targetConversation });
             }
 
             // 回退：通过conversation-container索引定位
             if (!targetConversation) {
                 const containers = document.querySelectorAll('div.conversation-container');
                 targetConversation = containers[index];
+                console.log('📋 [Gemini] 通过索引定位:', { 
+                    index, 
+                    totalContainers: containers.length, 
+                    found: !!targetConversation 
+                });
             }
 
             if (targetConversation && typeof targetConversation.scrollIntoView === 'function') {
+                console.log('✅ [Gemini] 成功定位，开始滚动');
                 targetConversation.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
                 // 注入并应用高亮样式
@@ -1890,12 +1938,12 @@ function handleConversationClick(event) {
                 targetConversation.classList.add('ai-enhancer-highlight');
                 setTimeout(() => targetConversation.classList.remove('ai-enhancer-highlight'), 1600);
             } else {
-                console.warn('无法定位到Gemini目标对话元素，使用估算滚动');
+                console.warn('⚠️ [Gemini] 无法定位到目标对话元素，使用估算滚动');
                 const estimatedPosition = Math.max(0, index * 400);
                 window.scrollTo({ top: estimatedPosition, behavior: 'smooth' });
             }
         } catch (error) {
-            console.error('处理Gemini对话时发生错误:', error);
+            console.error('❌ [Gemini] 处理对话时发生错误:', error);
         }
     }
 }

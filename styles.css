@@ -194,6 +194,30 @@
     border-color: #1a73e8;
 }
 
+/* 多选模式下对话项的鼠标指针样式 */
+#ai-chat-enhancer-sidebar.multi-select-mode .conversation-item {
+    cursor: pointer !important;
+}
+
+/* 多选模式下对话项的hover效果增强 */
+#ai-chat-enhancer-sidebar.multi-select-mode .conversation-item:hover {
+    background: #e8f0fe !important;
+    transform: translateX(-2px);
+    transition: all 0.2s ease;
+}
+
+/* 多选模式下选中状态的视觉增强 */
+#ai-chat-enhancer-sidebar.multi-select-mode .conversation-group.selected {
+    border-color: #1a73e8;
+    box-shadow: 0 2px 8px rgba(26, 115, 232, 0.15);
+}
+
+/* 当复选框被选中时，给整个对话组添加选中样式 */
+#ai-chat-enhancer-sidebar.multi-select-mode .conversation-checkbox:checked ~ .conversation-item {
+    background: #e8f0fe;
+    border-left: 3px solid #1a73e8;
+}
+
 /* 防止文字选中影响拖动 */
 body.resizing {
     cursor: ew-resize;
