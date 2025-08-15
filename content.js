@@ -525,8 +525,10 @@ function escapeMarkdownText(text, decodeHtml = false) {
 function formatCodeBlock(language, code) {
     if (!code) return '';
     
-    // 确保代码块前后有双换行，并且结束符号后也有换行
-    return `\n\n\`\`\`${language}\n${code}\n\`\`\`\n\n`;
+    // 使用更多的换行符来确保代码块前后有足够的间距
+    // 即使经过 trimEnd 和 ensureLineSpacing 处理也能保持正确格式
+    const block = `\`\`\`${language}\n${code}\n\`\`\``;
+    return `\n\n\n${block}\n\n\n`;
 }
 
 // 确保行间距函数 - 处理多余换行
@@ -535,6 +537,15 @@ function ensureLineSpacing(text) {
     
     // 将多个连续换行替换为最多2个换行
     return text.replace(/\n{3,}/g, '\n\n');
+}
+
+// 修复代码块结尾换行符 - 简单粗暴的解决方案
+function fixCodeBlockEndings(markdown) {
+    if (!markdown) return '';
+    
+    // 确保所有代码块结尾的 ``` 后面都有换行符
+    // 匹配代码块结尾的 ```（前面有换行符，后面没有换行符或字符串结尾）
+    return markdown.replace(/\n```(?!\n|$)/g, '\n```\n');
 }
 
 // 修改转换为 markdown 的函数
@@ -589,7 +600,8 @@ function convertElementToMarkdown(element) {
 
     const result = ensureLineSpacing(markdown);
     console.log('元素转换完成，长度:', result.length);
-    return result;
+    // 修复代码块结尾的换行符
+    return fixCodeBlockEndings(result);
 }
 
 // 处理单个HTML元素转换为Markdown
@@ -859,7 +871,9 @@ function convertGeminiElementToMarkdown(element) {
         }
     });
 
-    return ensureLineSpacing(markdown.trim());
+    const result = ensureLineSpacing(markdown.trim());
+    // 修复代码块结尾的换行符
+    return fixCodeBlockEndings(result);
 }
 
 // 通用代码块处理函数
