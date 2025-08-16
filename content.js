@@ -2,8 +2,7 @@
 function createSidebar() {
     const sidebar = document.createElement('div');
     sidebar.id = 'ai-chat-enhancer-sidebar';
-    // 默认设置为不显示
-    sidebar.style.display = 'none';
+    // 默认设置为不显示（通过CSS类控制）
     // 设置初始宽度
     sidebar.style.width = '380px';
 
@@ -11,16 +10,16 @@ function createSidebar() {
         <div class="sidebar-resizer"></div>
         <div class="sidebar-header">
             <div class="sidebar-title-section">
-                <span class="sidebar-title">对话导航</span>
+                <span class="sidebar-title">🧭 对话导航</span>
                 <div class="conversation-count" id="conversationCount">总计：0 条对话</div>
             </div>
             <div class="sidebar-header-buttons">
-                <button id="multiSelect" class="sidebar-button">多选</button>
+                <button id="multiSelect" class="sidebar-button">☑️ 多选</button>
             </div>
         </div>
         <div class="sidebar-divider"></div>
         <div class="sidebar-search-container" id="searchContainer" style="display: none;">
-            <input type="text" class="sidebar-search-input" id="searchInput" placeholder="搜索对话内容...">
+            <input type="text" class="sidebar-search-input" id="searchInput" placeholder="🔍 搜索对话内容...">
             <div class="search-results-count" id="searchResultsCount"></div>
         </div>
         <div class="sidebar-actions" id="sidebarActions" style="display: none;">
@@ -29,10 +28,10 @@ function createSidebar() {
                 <span class="button-text">全选</span>
             </button>
             <button id="clearAll" class="sidebar-button clear-all-button">
-                <span class="button-icon">✗</span>
+                <span class="button-icon">🗑️</span>
                 <span class="button-text">清空</span>
             </button>
-            <button id="copySelected" class="sidebar-button copy-selected" disabled>复制选中</button>
+            <button id="copySelected" class="sidebar-button copy-selected" disabled>📋 复制选中</button>
         </div>
         <div class="sidebar-content"></div>
     `;
@@ -1435,7 +1434,11 @@ async function initializeWidthSettings() {
         // 设置导航栏显示态
         const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
         if (sidebar) {
-            sidebar.style.display = result.sidebarVisible === false ? 'none' : 'flex';
+            if (result.sidebarVisible === false) {
+                sidebar.classList.remove('visible');
+            } else {
+                sidebar.classList.add('visible');
+            }
         }
 
         // 应用对话宽度设置
@@ -1503,7 +1506,7 @@ function saveSettings(settings) {
         if ('sidebarVisible' in settings) {
             const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
             if (sidebar) {
-                const actualVisible = sidebar.style.display !== 'none';
+                const actualVisible = sidebar.classList.contains('visible');
                 settings.sidebarVisible = actualVisible;
             }
         }
@@ -1531,7 +1534,11 @@ async function applySettings() {
     const isVisible = await loadSettings();
     const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
     if (sidebar) {
-        sidebar.style.display = isVisible ? 'flex' : 'none';
+        if (isVisible) {
+            sidebar.classList.add('visible');
+        } else {
+            sidebar.classList.remove('visible');
+        }
         // 同步存储状态
         chrome.storage.sync.set({ sidebarVisible: isVisible });
     }
@@ -1544,7 +1551,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'getSettings') {
         const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
         // 使用实际的显示状态来判断
-        const actualSidebarVisible = sidebar ? sidebar.style.display === 'flex' : false;
+        const actualSidebarVisible = sidebar ? sidebar.classList.contains('visible') : false;
         // 读取当前侧边栏实际宽度（如不可得则回退 380）
         const sidebarWidthPx = (() => {
             if (!sidebar) return 380;
@@ -1571,13 +1578,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const sidebar = document.getElementById('ai-chat-enhancer-sidebar');
         if (sidebar) {
             const isVisible = request.visible;
-            sidebar.style.display = isVisible ? 'flex' : 'none';
+            if (isVisible) {
+            sidebar.classList.add('visible');
+        } else {
+            sidebar.classList.remove('visible');
+        }
             // 保存状态
             chrome.storage.sync.set({ sidebarVisible: isVisible }, () => {
                 sendResponse({
                     success: true,
                     actualState: isVisible,
-                    displayStyle: sidebar.style.display
+                    displayStyle: sidebar.classList.contains('visible') ? 'flex' : 'none'
                 });
             });
         }
