@@ -46,6 +46,13 @@
     user-select: none;
 }
 
+/* 分割线样式 */
+.sidebar-divider {
+    height: 1px;
+    background: #e8f0fe;
+    margin: 0 16px;
+}
+
 .sidebar-title-section {
     display: flex;
     flex-direction: column;
@@ -96,6 +103,16 @@
     color: #5f6368;
     min-width: 80px;
     text-align: right;
+    font-weight: 500;
+}
+
+/* 搜索结果计数动画 */
+.search-results-count {
+    transition: all 0.3s ease;
+}
+
+.search-results-count.has-results {
+    color: #1a73e8;
 }
 
 /* 全选按钮样式 */
@@ -111,6 +128,89 @@
 /* 多选模式下搜索框显示 */
 #ai-chat-enhancer-sidebar.multi-select-mode .sidebar-search-container {
     display: flex !important;
+}
+
+/* 操作按钮区域 */
+.sidebar-actions {
+    padding: 12px 16px;
+    background: #ffffff;
+    border-bottom: 1px solid #e8f0fe;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* 多选模式下操作按钮显示 */
+#ai-chat-enhancer-sidebar.multi-select-mode .sidebar-actions {
+    display: flex !important;
+}
+
+/* 按钮图标和文字布局 */
+.sidebar-button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    background: #e8f0fe;
+    color: #1a73e8;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.button-icon {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.button-text {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* 全选按钮样式 */
+.select-all-button {
+    background: #34a853 !important;
+    color: white !important;
+}
+
+.select-all-button:hover {
+    background: #2d8544 !important;
+}
+
+/* 清空按钮样式 */
+.clear-all-button {
+    background: #ea4335 !important;
+    color: white !important;
+}
+
+.clear-all-button:hover {
+    background: #d33b27 !important;
+}
+
+/* 复制选中按钮样式 */
+.copy-selected {
+    background: #1a73e8 !important;
+    color: white !important;
+}
+
+.copy-selected:hover {
+    background: #1557b0 !important;
+}
+
+/* 按钮激活状态 */
+.sidebar-button:active {
+    transform: scale(0.95);
+}
+
+/* 禁用状态 */
+.sidebar-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
 }
 
 /* 范围选择的高亮效果 */
