@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>SiYuan 配置 - AI Chat 增强器</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a73e8, #1557b0);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 20px rgba(26, 115, 232, 0.3);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .header p {
+            margin: 8px 0 0 0;
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .config-section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e8eaed;
+        }
+
+        .config-section h3 {
+            margin: 0 0 20px 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a73e8;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e8f0fe;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #3c4043;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #dadce0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            box-sizing: border-box;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #1a73e8;
+            box-shadow: 0 1px 3px rgba(26, 115, 232, 0.1);
+        }
+
+        input[type="checkbox"] {
+            margin-right: 8px;
+            width: 18px;
+            height: 18px;
+            accent-color: #1a73e8;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .checkbox-group label {
+            margin-bottom: 0;
+            font-weight: normal;
+        }
+
+        .password-container {
+            position: relative;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #5f6368;
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        .password-toggle:hover {
+            background-color: #f1f3f4;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 30px;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-width: 120px;
+        }
+
+        .btn-primary {
+            background-color: #1a73e8;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #1557b0;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(26, 115, 232, 0.3);
+        }
+
+        .btn-secondary {
+            background-color: #f1f3f4;
+            color: #3c4043;
+        }
+
+        .btn-secondary:hover {
+            background-color: #e8eaed;
+        }
+
+        .btn-success {
+            background-color: #34a853;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #2d8544;
+        }
+
+        .status-message {
+            margin-top: 20px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: #5f6368;
+            margin-top: 6px;
+            line-height: 1.4;
+        }
+
+        .template-help {
+            background-color: #f8f9fa;
+            border: 1px solid #e8eaed;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 12px;
+            font-size: 12px;
+            color: #5f6368;
+        }
+
+        .template-help h4 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            color: #1a73e8;
+        }
+
+        .template-help code {
+            background-color: #e8f0fe;
+            color: #1a73e8;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 11px;
+        }
+
+        .extension-info {
+            background: #e8f0fe;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .extension-info h2 {
+            color: #1a73e8;
+            margin: 0 0 8px 0;
+            font-size: 20px;
+        }
+
+        .extension-info p {
+            color: #5f6368;
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .config-section {
+            margin-bottom: 20px;
+            padding: 16px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e8eaed;
+        }
+
+        .config-section h3 {
+            margin: 0 0 12px 0;
+            font-size: 16px;
+            font-weight: 500;
+            color: #3c4043;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #3c4043;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #dadce0;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            box-sizing: border-box;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #1a73e8;
+            box-shadow: 0 1px 3px rgba(26, 115, 232, 0.1);
+        }
+
+        input[type="checkbox"] {
+            margin-right: 8px;
+            width: 16px;
+            height: 16px;
+            accent-color: #1a73e8;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .checkbox-group label {
+            margin-bottom: 0;
+            font-weight: normal;
+        }
+
+        .password-container {
+            position: relative;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #5f6368;
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        .password-toggle:hover {
+            background-color: #f1f3f4;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+            justify-content: flex-end;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background-color: #1a73e8;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #1557b0;
+        }
+
+        .btn-secondary {
+            background-color: #f1f3f4;
+            color: #3c4043;
+        }
+
+        .btn-secondary:hover {
+            background-color: #e8eaed;
+        }
+
+        .status-message {
+            margin-top: 12px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: #5f6368;
+            margin-top: 4px;
+        }
+
+        .template-help {
+            background-color: #e8f0fe;
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #1a73e8;
+        }
+
+        .template-help h4 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+        }
+
+        .template-help code {
+            background-color: #f1f3f4;
+            padding: 2px 4px;
+            border-radius: 2px;
+            font-family: 'Roboto Mono', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 SiYuan 配置</h1>
+            <p>配置思源笔记连接和剪藏设置</p>
+        </div>
+
+        <div class="extension-info">
+            <h2>🤖 AI Chat 增强器</h2>
+            <p>支持 ChatGPT、通义千问、Gemini 等AI聊天网站的对话导出和剪藏功能</p>
+        </div>
+
+    <div class="config-section">
+        <h3>基本设置</h3>
+        <div class="form-group">
+            <label for="ip">SiYuan API 地址:</label>
+            <input type="text" id="ip" placeholder="http://127.0.0.1:6806">
+            <div class="help-text">SiYuan 笔记的 API 地址，默认为本地端口 6806</div>
+        </div>
+        
+        <div class="form-group">
+            <label for="token">API Token:</label>
+            <div class="password-container">
+                <input type="password" id="token" placeholder="请输入 API Token">
+                <button class="password-toggle" id="togglePassword">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="help-text">在 SiYuan 设置 → 关于 → API Token 中获取</div>
+        </div>
+
+        <div class="form-group">
+            <div class="checkbox-group">
+                <input type="checkbox" id="showTip">
+                <label for="showTip">显示剪藏提示</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="config-section">
+        <h3>文档保存位置</h3>
+        <div class="form-group">
+            <label for="searchDoc">搜索文档:</label>
+            <input type="text" id="searchDoc" placeholder="输入关键词搜索文档">
+        </div>
+        
+        <div class="form-group">
+            <label for="parentDoc">父文档:</label>
+            <select id="parentDoc">
+                <option value="">请先搜索并选择父文档</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="tags">标签:</label>
+            <input type="text" id="tags" placeholder="输入标签，用逗号分隔">
+            <div class="help-text">标签会自动添加到剪藏的文档中</div>
+        </div>
+    </div>
+
+    <div class="config-section">
+        <h3>剪藏选项</h3>
+        <div class="form-group">
+            <div class="checkbox-group">
+                <input type="checkbox" id="assets">
+                <label for="assets">保存资源文件</label>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="checkbox-group">
+                <input type="checkbox" id="expOpenAfterClip">
+                <label for="expOpenAfterClip">剪藏后打开文档</label>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="checkbox-group">
+                <input type="checkbox" id="exp">
+                <label for="exp">启用高级处理选项</label>
+            </div>
+        </div>
+
+        <div id="expGroup" style="display: none; margin-left: 24px;">
+            <div class="form-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="expSpan">
+                    <label for="expSpan">处理 span 标签换行</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="expBold">
+                    <label for="expBold">处理粗体样式</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="expItalic">
+                    <label for="expItalic">处理斜体样式</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="expRemoveImgLink">
+                    <label for="expRemoveImgLink">移除图片链接</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="expListDocTree">
+                    <label for="expListDocTree">列出文档树</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="expSvgToImg">
+                    <label for="expSvgToImg">SVG 转图片</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="config-section">
+        <h3>模板配置</h3>
+        <div class="form-group">
+            <label for="templateText">剪藏模板:</label>
+            <textarea id="templateText" rows="6" placeholder="请输入剪藏模板..."></textarea>
+            <div class="template-help" id="templateHelp">
+                <h4>可用变量:</h4>
+                <p><code>${title}</code> - 页面标题</p>
+                <p><code>${url}</code> - 页面地址</p>
+                <p><code>${urlDecoded}</code> - 解码后的页面地址</p>
+                <p><code>${excerpt}</code> - 页面摘要</p>
+                <p><code>${date}</code> - 当前日期</p>
+                <p><code>${time}</code> - 当前时间</p>
+                <p><code>${content}</code> - 页面内容</p>
+                <p><code>${siteName}</code> - 网站名称</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="config-section">
+        <h3>语言设置</h3>
+        <div class="form-group">
+            <label for="language">界面语言:</label>
+            <select id="language">
+                <option value="en">English</option>
+                <option value="zh_CN">简体中文</option>
+                <option value="zh_TW">繁體中文</option>
+                <option value="ja">日本語</option>
+                <option value="ko">한국어</option>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+                <option value="es">Español</option>
+                <option value="ru">Русский</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="button-group">
+        <button class="btn btn-success" id="testConnectionBtn">测试连接</button>
+        <button class="btn btn-secondary" id="resetBtn">重置</button>
+        <button class="btn btn-primary" id="saveBtn">保存配置</button>
+    </div>
+
+    <div class="status-message" id="statusMessage"></div>
+
+    <script src="siyuan-config.js"></script>
+    </div>
+</body>
+</html>

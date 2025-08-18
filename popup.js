@@ -216,4 +216,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 2000);
         });
     }
+
+    // SiYuan 配置按钮事件监听
+    const siyuanConfigBtn = document.getElementById('siyuanConfigBtn');
+
+    if (siyuanConfigBtn) {
+        siyuanConfigBtn.addEventListener('click', function() {
+            // 打开 SiYuan 配置页面（新标签页）
+            chrome.runtime.openOptionsPage();
+        });
+    }
 });
