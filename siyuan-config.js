@@ -140,6 +140,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // Save configuration
     const saveBtn = document.getElementById('saveBtn')
     saveBtn.addEventListener('click', () => {
+        // 验证必填字段
+        if (!tokenElement.value) {
+            showStatus('❌ 请填写 API Token', 'error')
+            return
+        }
+        
+        if (!parentDocElement.value || parentDocElement.value === '') {
+            showStatus('❌ 请搜索并选择父文档', 'error')
+            return
+        }
+        
         const config = {
             ip: ipElement.value,
             token: tokenElement.value,
@@ -383,21 +394,8 @@ const showTestStatus = (message, type) => {
     }, displayTime)
 }
 
-const createTestDocument = () => {
-    const docName = document.getElementById('testDocName').value.trim()
-    const docContent = document.getElementById('testDocContent').value.trim()
-    
-    // 输入验证
-    if (!docName) {
-        showTestStatus('请输入文档名称', 'error')
-        return
-    }
-    
-    if (!docContent) {
-        showTestStatus('请输入文档内容', 'error')
-        return
-    }
-    
+// 公共函数：创建思源笔记文档（全局函数，供popup.js使用）
+window.createSiyuanDocument = (docName, docContent, callback) => {
     // 获取当前配置
     chrome.storage.sync.get({
         ip: 'http://127.0.0.1:6806',
@@ -408,22 +406,19 @@ const createTestDocument = () => {
     }, function (items) {
         // 验证必要配置
         if (!items.token) {
-            showTestStatus('❌ 缺少API Token，请先配置思源笔记的API Token', 'error')
+            callback('❌ 缺少API Token，请先配置思源笔记的API Token', null)
             return
         }
         
         if (!items.notebook) {
-            showTestStatus('❌ 缺少笔记本配置，请先搜索并选择父文档', 'error')
+            callback('❌ 缺少笔记本配置，请先搜索并选择父文档', null)
             return
         }
         
         if (!items.parentDoc) {
-            showTestStatus('❌ 缺少父文档配置，请先搜索并选择父文档', 'error')
+            callback('❌ 缺少父文档配置，请先搜索并选择父文档', null)
             return
         }
-        
-        // 显示正在创建的提示
-        showTestStatus('🔄 正在创建测试文档...', 'info')
         
         // 构建文档路径（移除笔记本名称）
         const parentPathWithoutNotebook = items.parentHPath ? items.parentHPath.substring(items.parentHPath.indexOf('/')) : ''
@@ -453,13 +448,13 @@ const createTestDocument = () => {
         })
         .then(data => {
             if (data.code === 0) {
-                showTestStatus(`✅ 测试文档创建成功！\n📄 文档路径: ${docPath}\n📝 文档ID: ${data.data || '未知'}`, 'success')
+                callback(null, { success: true, path: docPath, docId: data.data || '未知' })
             } else {
-                showTestStatus(`❌ 创建文档失败: ${data.msg || '未知错误'}`, 'error')
+                callback(`❌ 创建文档失败: ${data.msg || '未知错误'}`, null)
             }
         })
         .catch(error => {
-            console.error('Create test document error:', error)
+            console.error('Create siyuan document error:', error)
             let errorMessage = '❌ 创建文档时发生错误'
             
             if (error.message.includes('Failed to fetch')) {
@@ -472,7 +467,35 @@ const createTestDocument = () => {
                 errorMessage = '❌ 请求参数错误，请检查配置是否正确'
             }
             
-            showTestStatus(errorMessage, 'error')
+            callback(errorMessage, null)
         })
+    })
+}
+
+const createTestDocument = () => {
+    const docName = document.getElementById('testDocName').value.trim()
+    const docContent = document.getElementById('testDocContent').value.trim()
+    
+    // 输入验证
+    if (!docName) {
+        showTestStatus('请输入文档名称', 'error')
+        return
+    }
+    
+    if (!docContent) {
+        showTestStatus('请输入文档内容', 'error')
+        return
+    }
+    
+    // 显示正在创建的提示
+    showTestStatus('🔄 正在创建测试文档...', 'info')
+    
+    // 使用公共函数创建文档
+    createSiyuanDocument(docName, docContent, (error, result) => {
+        if (error) {
+            showTestStatus(error, 'error')
+        } else {
+            showTestStatus(`✅ 测试文档创建成功！\n📄 文档路径: ${result.path}\n📝 文档ID: ${result.docId}`, 'success')
+        }
     })
 }

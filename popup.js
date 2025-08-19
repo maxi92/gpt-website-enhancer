@@ -14,6 +14,109 @@ function isSupportedSite(url) {
     });
 }
 
+// 获取网站名称
+function getSiteName(url) {
+    if (!url) return 'Unknown';
+    
+    if (url.includes('chatgpt.com')) {
+        return 'ChatGPT';
+    } else if (url.includes('tongyi.com')) {
+        return '通义千问';
+    } else if (url.includes('gemini.google.com')) {
+        return 'Gemini';
+    } else {
+        return 'Unknown';
+    }
+}
+
+// 获取当前时间（格式：HHmmss）
+function getCurrentTime() {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return `${hours}${minutes}${seconds}`;
+}
+
+// 显示通知
+function showNotification(message, type = 'info') {
+    // 创建通知元素
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        max-width: 300px;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        z-index: 10000;
+        white-space: pre-line;
+        line-height: 1.4;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        animation: slideIn 0.3s ease-out;
+    `;
+    
+    // 设置不同类型的样式
+    switch (type) {
+        case 'success':
+            notification.style.backgroundColor = '#d4edda';
+            notification.style.color = '#155724';
+            notification.style.border = '1px solid #c3e6cb';
+            break;
+        case 'error':
+            notification.style.backgroundColor = '#f8d7da';
+            notification.style.color = '#721c24';
+            notification.style.border = '1px solid #f5c6cb';
+            break;
+        default:
+            notification.style.backgroundColor = '#d1ecf1';
+            notification.style.color = '#0c5460';
+            notification.style.border = '1px solid #bee5eb';
+    }
+    
+    // 添加动画样式
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // 添加到页面
+    document.body.appendChild(notification);
+    
+    // 设置自动消失
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease-in';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 4000); // 显示4秒
+}
+
 // 显示不支持网站的提示
 function showUnsupportedSite() {
     const body = document.body;
@@ -165,8 +268,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         markdownOutput.style.display = 'block';
                         copyMarkdownButton.style.display = 'block';
                         tocContainer.style.display = 'flex';
+                        
+                        // 显示思源笔记按钮
+                        const sendToSiyuanButton = document.getElementById('sendToSiyuan');
+                        if (sendToSiyuanButton) {
+                            sendToSiyuanButton.style.display = 'block';
+                        }
 
-                        // 确保复制按钮可见
+                        // 确保按钮可见
                         try {
                             copyMarkdownButton.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                         } catch (e) {}
@@ -217,6 +326,47 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // 发送到思源笔记按钮事件监听
+    const sendToSiyuanButton = document.getElementById('sendToSiyuan');
+    if (sendToSiyuanButton) {
+        sendToSiyuanButton.addEventListener('click', function() {
+            const markdownContent = markdownOutput.value.trim();
+            if (!markdownContent) {
+                alert('请先转换为Markdown格式');
+                return;
+            }
+
+            // 获取当前网站信息
+            chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+                const currentUrl = tabs[0]?.url || '';
+                const siteName = getSiteName(currentUrl);
+                const currentTime = getCurrentTime();
+                const docName = `${siteName}${currentTime}`;
+
+                // 禁用按钮，显示发送中状态
+                const button = sendToSiyuanButton;
+                const originalText = button.textContent;
+                button.disabled = true;
+                button.textContent = '发送中...';
+
+                // 直接调用思源笔记创建函数
+                createSiyuanDocument(docName, markdownContent, (error, result) => {
+                    // 恢复按钮状态
+                    button.disabled = false;
+                    button.textContent = originalText;
+
+                    if (error) {
+                        // 显示错误信息
+                        showNotification(error, 'error');
+                    } else {
+                        // 显示成功信息
+                        showNotification(`✅ 已发送到思源笔记！\n📄 文档名: ${docName}\n📂 路径: ${result.path}`, 'success');
+                    }
+                });
+            });
+        });
+    }
+
     // SiYuan 配置按钮事件监听
     const siyuanConfigBtn = document.getElementById('siyuanConfigBtn');
 
@@ -227,3 +377,81 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// 创建思源笔记文档函数
+function createSiyuanDocument(docName, docContent, callback) {
+    // 获取当前配置
+    chrome.storage.sync.get({
+        ip: 'http://127.0.0.1:6806',
+        token: '',
+        notebook: '',
+        parentDoc: '',
+        parentHPath: ''
+    }, function (items) {
+        // 验证必要配置
+        if (!items.token) {
+            callback('❌ 缺少API Token，请先配置思源笔记的API Token', null);
+            return;
+        }
+        
+        if (!items.notebook) {
+            callback('❌ 缺少笔记本配置，请先搜索并选择父文档', null);
+            return;
+        }
+        
+        if (!items.parentDoc) {
+            callback('❌ 缺少父文档配置，请先搜索并选择父文档', null);
+            return;
+        }
+        
+        // 构建文档路径（移除笔记本名称）
+        const parentPathWithoutNotebook = items.parentHPath ? items.parentHPath.substring(items.parentHPath.indexOf('/')) : '';
+        const docPath = parentPathWithoutNotebook ? `${parentPathWithoutNotebook}/${docName}` : `/${docName}`;
+        
+        // 准备API请求
+        const apiData = {
+            notebook: items.notebook,
+            path: docPath,
+            markdown: docContent
+        };
+        
+        // 发送创建文档请求
+        fetch(items.ip + '/api/filetree/createDocWithMd', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Token ' + items.token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(apiData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.code === 0) {
+                callback(null, { success: true, path: docPath, docId: data.data || '未知' });
+            } else {
+                callback(`❌ 创建文档失败: ${data.msg || '未知错误'}`, null);
+            }
+        })
+        .catch(error => {
+            console.error('Create siyuan document error:', error);
+            let errorMessage = '❌ 创建文档时发生错误';
+            
+            if (error.message.includes('Failed to fetch')) {
+                errorMessage = '❌ 无法连接到思源笔记服务器，请检查API地址是否正确';
+            } else if (error.message.includes('HTTP error! status: 401')) {
+                errorMessage = '❌ API Token 验证失败，请检查Token是否正确';
+            } else if (error.message.includes('HTTP error! status: 404')) {
+                errorMessage = '❌ API 接口不存在，请检查思源笔记版本是否支持此功能';
+            } else if (error.message.includes('HTTP error! status: 400')) {
+                errorMessage = '❌ 请求参数错误，请检查配置是否正确';
+            }
+            
+            callback(errorMessage, null);
+        });
+    });
+}
