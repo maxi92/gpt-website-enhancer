@@ -378,6 +378,60 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// Markdown预处理函数：将双星号语法转换为HTML标签，适配思源笔记
+function convertMarkdownForSiyuan(content) {
+    if (!content || typeof content !== 'string') {
+        return content;
+    }
+    
+    // 将 **粗体文本** 转换为 <strong>粗体文本</strong>
+    // 使用更精确的正则表达式，避免在代码块中转换
+    let processedContent = content;
+    
+    // 按行处理，避免在代码块中转换
+    const lines = processedContent.split('\n');
+    let inCodeBlock = false;
+    const inlineCodePlaceholders = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+        
+        // 检查是否在代码块中
+        if (line.includes('```')) {
+            inCodeBlock = !inCodeBlock;
+            // 不转换代码块标记行
+            continue;
+        }
+        
+        // 如果在代码块中，不进行转换
+        if (inCodeBlock) {
+            continue;
+        }
+        
+        // 处理行内代码，避免在行内代码中转换
+        line = line.replace(/`[^`]*`/g, (match) => {
+            // 临时替换行内代码，避免其中的双星号被转换
+            const placeholder = `__INLINE_CODE_${inlineCodePlaceholders.length}__`;
+            inlineCodePlaceholders.push(match);
+            return placeholder;
+        });
+        
+        // 转换双星号粗体语法
+        line = line.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        
+        // 恢复行内代码
+        line = line.replace(/__INLINE_CODE_(\d+)__/g, (match, index) => {
+            return inlineCodePlaceholders[parseInt(index)];
+        });
+        
+        lines[i] = line;
+    }
+    
+    processedContent = lines.join('\n');
+    
+    return processedContent;
+}
+
 // 创建思源笔记文档函数
 function createSiyuanDocument(docName, docContent, callback) {
     // 获取当前配置
@@ -408,11 +462,14 @@ function createSiyuanDocument(docName, docContent, callback) {
         const parentPathWithoutNotebook = items.parentHPath ? items.parentHPath.substring(items.parentHPath.indexOf('/')) : '';
         const docPath = parentPathWithoutNotebook ? `${parentPathWithoutNotebook}/${docName}` : `/${docName}`;
         
+        // 预处理Markdown内容：将双星号语法转换为HTML标签，适配思源笔记
+        const processedContent = convertMarkdownForSiyuan(docContent);
+        
         // 准备API请求
         const apiData = {
             notebook: items.notebook,
             path: docPath,
-            markdown: docContent
+            markdown: processedContent
         };
         
         // 发送创建文档请求
