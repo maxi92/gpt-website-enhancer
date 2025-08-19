@@ -1650,6 +1650,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     return true;
                 }
 
+                // 获取当前对话标题
+                currentTitle = getTongyiCurrentConversationTitle();
+
                 const questions = document.querySelectorAll(siteConfig.humanMessageSelector);
                 const answers = document.querySelectorAll(siteConfig.aiMessageSelector);
 
@@ -1703,8 +1706,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 });
             }
 
-            // 如果是Gemini页面且有对话标题，在最前面添加标题
-            if (hostname.includes('gemini.google.com') && currentTitle) {
+            // 如果是Gemini或通义千问页面且有对话标题，在最前面添加标题
+            if ((hostname.includes('gemini.google.com') || hostname.includes('www.tongyi.com')) && currentTitle) {
                 markdown = `# ${currentTitle}\n\n${markdown}`;
             }
 
@@ -1960,6 +1963,22 @@ function getGeminiCurrentConversationTitle() {
         return title;
     } else {
         console.log("未找到当前选中的Gemini对话。");
+        return null;
+    }
+}
+
+// 获取通义千问当前对话标题
+function getTongyiCurrentConversationTitle() {
+    // 使用经过测试的CSS选择器定位当前选中的对话标题
+    const selectedTitleElement = document.querySelector('div[class*="sessionItem"][class*="activeItem"] div[class*="truncate"]');
+    
+    if (selectedTitleElement) {
+        const title = selectedTitleElement.textContent.trim();
+        console.log("找到当前通义千问对话标题:", title);
+        return title;
+    } else {
+        console.log("未找到当前选中的通义千问对话。");
+        console.log("选择器测试:", document.querySelector('div[class*="sessionItem"][class*="activeItem"] div[class*="truncate"]'));
         return null;
     }
 }
