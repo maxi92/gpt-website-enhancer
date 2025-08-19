@@ -207,6 +207,12 @@
             color: #0c5460;
             border: 1px solid #bee5eb;
         }
+        
+        /* 测试状态消息样式 - 支持多行文本 */
+        #testStatusMessage {
+            white-space: pre-line;
+            line-height: 1.5;
+        }
 
         .help-text {
             font-size: 12px;
@@ -605,6 +611,33 @@
     </div>
 
     <div class="status-message" id="statusMessage"></div>
+
+    <!-- 思源笔记写入测试区域 -->
+    <div class="config-section">
+        <h3>🧪 思源笔记写入测试</h3>
+        <p style="color: #5f6368; font-size: 14px; margin-bottom: 16px;">
+            此区域用于测试思源笔记的写入功能是否正常工作。您可以输入文档名称和内容，然后点击创建按钮验证配置是否正确。
+        </p>
+        
+        <div class="form-group">
+            <label for="testDocName">文档名称:</label>
+            <input type="text" id="testDocName" placeholder="请输入测试文档名称">
+            <div class="help-text">将在此名称下创建测试文档</div>
+        </div>
+        
+        <div class="form-group">
+            <label for="testDocContent">文档内容:</label>
+            <textarea id="testDocContent" rows="6" placeholder="请输入测试文档内容...&#10;&#10;支持 Markdown 格式，例如：&#10;# 标题&#10;这是一段测试文本。&#10;- 列表项1&#10;- 列表项2"></textarea>
+            <div class="help-text">支持 Markdown 格式的文档内容</div>
+        </div>
+        
+        <div class="button-group">
+            <button class="btn btn-success" id="testCreateBtn">创建测试文档</button>
+            <button class="btn btn-secondary" id="testClearBtn">清空输入</button>
+        </div>
+        
+        <div class="status-message" id="testStatusMessage"></div>
+    </div>
 
     <script src="siyuan-config.js"></script>
     </div>

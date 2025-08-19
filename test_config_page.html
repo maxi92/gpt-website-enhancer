@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>配置页面测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1a73e8;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #1a73e8;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #3c4043;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            font-weight: 500;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #1a73e8;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: 500;
+            transition: background 0.2s;
+            border: none;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background: #1557b0;
+        }
+        .button.secondary {
+            background: #6c757d;
+        }
+        .button.secondary:hover {
+            background: #545b62;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 SiYuan 配置页面测试</h1>
+        
+        <div class="status info">
+            <strong>测试说明：</strong>此页面用于验证 SiYuan 配置页面是否正确实现为独立的 options 页面。
+        </div>
+
+        <div class="test-section">
+            <h3>📋 已完成的修改</h3>
+            <ul>
+                <li><strong>✅ manifest.json：</strong>添加了 options_page 配置指向 siyuan-config.html</li>
+                <li><strong>✅ siyuan-config.html：</strong>重新设计为独立的配置页面，包含现代化UI</li>
+                <li><strong>✅ siyuan-config.js：</strong>适配独立页面，添加测试连接和重置功能</li>
+                <li><strong>✅ popup.js：</strong>修改为使用 chrome.runtime.openOptionsPage() 打开新标签页</li>
+                <li><strong>✅ popup.html：</strong>移除了模态框相关代码</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>🚀 功能特性</h3>
+            <ul>
+                <li><strong>独立页面：</strong>配置页面在新标签页中打开，不再使用模态框</li>
+                <li><strong>现代化UI：</strong>重新设计的用户界面，更好的视觉体验</li>
+                <li><strong>连接测试：</strong>可以测试 SiYuan 服务器的连接状态</li>
+                <li><strong>配置重置：</strong>一键重置所有配置到默认值</li>
+                <li><strong>自动保存：</strong>配置修改后自动保存到 Chrome 存储</li>
+                <li><strong>完整功能：</strong>保留所有原有的 SiYuan 配置选项</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 如何测试</h3>
+            <ol>
+                <li>在 Chrome 扩展管理页面重新加载扩展</li>
+                <li>在支持的 AI 聊天网站（ChatGPT、通义千问、Gemini）打开扩展弹窗</li>
+                <li>点击"SiYuan 配置"按钮</li>
+                <li>验证是否在新标签页中打开配置页面</li>
+                <li>测试配置页面的各项功能是否正常工作</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h3>📝 测试步骤</h3>
+            <div class="status success">
+                <strong>预期行为：</strong>
+                <ul>
+                    <li>点击"SiYuan 配置"按钮应该在新标签页中打开配置页面</li>
+                    <li>配置页面应该有现代化的设计，包含所有必要的配置选项</li>
+                    <li>可以填写 SiYuan 服务器信息并测试连接</li>
+                    <li>配置可以保存并在下次打开时恢复</li>
+                    <li>页面右上角应该有 Chrome 扩展的选项页面特定控件</li>
+                </ul>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <button class="button" onclick="window.close()">关闭测试页面</button>
+            <a href="siyuan-config.html" target="_blank" class="button secondary">直接打开配置页面</a>
+        </div>
+    </div>
+
+    <script>
+        // 检查是否在扩展环境中运行
+        if (typeof chrome !== 'undefined' && chrome.runtime) {
+            console.log('✅ 在 Chrome 扩展环境中运行');
+        } else {
+            console.log('⚠️ 不在 Chrome 扩展环境中，部分功能可能无法正常工作');
+        }
+    </script>
+</body>
+</html>

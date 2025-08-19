@@ -185,6 +185,25 @@ document.addEventListener('DOMContentLoaded', () => {
             resetConfiguration()
         }
     })
+
+    // Test functionality elements
+    const testDocNameElement = document.getElementById('testDocName')
+    const testDocContentElement = document.getElementById('testDocContent')
+    const testCreateBtn = document.getElementById('testCreateBtn')
+    const testClearBtn = document.getElementById('testClearBtn')
+    const testStatusMessage = document.getElementById('testStatusMessage')
+
+    // Test create button event listener
+    testCreateBtn.addEventListener('click', () => {
+        createTestDocument()
+    })
+
+    // Test clear button event listener
+    testClearBtn.addEventListener('click', () => {
+        testDocNameElement.value = ''
+        testDocContentElement.value = ''
+        testStatusMessage.style.display = 'none'
+    })
 })
 
 const updateSearch = () => {
@@ -341,4 +360,119 @@ const showStatus = (message, type) => {
     setTimeout(() => {
         statusElement.style.display = 'none'
     }, displayTime)
+}
+
+const showTestStatus = (message, type) => {
+    const statusElement = document.getElementById('testStatusMessage')
+    statusElement.textContent = message
+    statusElement.className = `status-message status-${type}`
+    statusElement.style.display = 'block'
+    
+    // 根据消息类型设置不同的显示时间
+    let displayTime = 3000 // 默认3秒
+    if (type === 'success') {
+        displayTime = 8000 // 成功消息显示8秒
+    } else if (type === 'error') {
+        displayTime = 12000 // 错误消息显示12秒
+    } else if (type === 'info') {
+        displayTime = 5000 // 信息消息显示5秒
+    }
+    
+    setTimeout(() => {
+        statusElement.style.display = 'none'
+    }, displayTime)
+}
+
+const createTestDocument = () => {
+    const docName = document.getElementById('testDocName').value.trim()
+    const docContent = document.getElementById('testDocContent').value.trim()
+    
+    // 输入验证
+    if (!docName) {
+        showTestStatus('请输入文档名称', 'error')
+        return
+    }
+    
+    if (!docContent) {
+        showTestStatus('请输入文档内容', 'error')
+        return
+    }
+    
+    // 获取当前配置
+    chrome.storage.sync.get({
+        ip: 'http://127.0.0.1:6806',
+        token: '',
+        notebook: '',
+        parentDoc: '',
+        parentHPath: ''
+    }, function (items) {
+        // 验证必要配置
+        if (!items.token) {
+            showTestStatus('❌ 缺少API Token，请先配置思源笔记的API Token', 'error')
+            return
+        }
+        
+        if (!items.notebook) {
+            showTestStatus('❌ 缺少笔记本配置，请先搜索并选择父文档', 'error')
+            return
+        }
+        
+        if (!items.parentDoc) {
+            showTestStatus('❌ 缺少父文档配置，请先搜索并选择父文档', 'error')
+            return
+        }
+        
+        // 显示正在创建的提示
+        showTestStatus('🔄 正在创建测试文档...', 'info')
+        
+        // 构建文档路径（移除笔记本名称）
+        const parentPathWithoutNotebook = items.parentHPath ? items.parentHPath.substring(items.parentHPath.indexOf('/')) : ''
+        const docPath = parentPathWithoutNotebook ? `${parentPathWithoutNotebook}/${docName}` : `/${docName}`
+        
+        // 准备API请求
+        const apiData = {
+            notebook: items.notebook,
+            path: docPath,
+            markdown: docContent
+        }
+        
+        // 发送创建文档请求
+        fetch(items.ip + '/api/filetree/createDocWithMd', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Token ' + items.token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(apiData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`)
+            }
+            return response.json()
+        })
+        .then(data => {
+            if (data.code === 0) {
+                showTestStatus(`✅ 测试文档创建成功！\n📄 文档路径: ${docPath}\n📝 文档ID: ${data.data || '未知'}`, 'success')
+            } else {
+                showTestStatus(`❌ 创建文档失败: ${data.msg || '未知错误'}`, 'error')
+            }
+        })
+        .catch(error => {
+            console.error('Create test document error:', error)
+            let errorMessage = '❌ 创建文档时发生错误'
+            
+            if (error.message.includes('Failed to fetch')) {
+                errorMessage = '❌ 无法连接到思源笔记服务器，请检查API地址是否正确'
+            } else if (error.message.includes('HTTP error! status: 401')) {
+                errorMessage = '❌ API Token 验证失败，请检查Token是否正确'
+            } else if (error.message.includes('HTTP error! status: 404')) {
+                errorMessage = '❌ API 接口不存在，请检查思源笔记版本是否支持此功能'
+            } else if (error.message.includes('HTTP error! status: 400')) {
+                errorMessage = '❌ 请求参数错误，请检查配置是否正确'
+            }
+            
+            showTestStatus(errorMessage, 'error')
+        })
+    })
 }
