@@ -1731,6 +1731,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
         return true;
     }
+
+    if (request.action === 'getCurrentConversationTitle') {
+        try {
+            const hostname = window.location.hostname;
+            let currentTitle = null;
+
+            if (hostname.includes('chatgpt.com')) {
+                currentTitle = getChatGPTCurrentConversationTitle();
+            } else if (hostname.includes('www.tongyi.com')) {
+                currentTitle = getTongyiCurrentConversationTitle();
+            } else if (hostname.includes('gemini.google.com')) {
+                currentTitle = getGeminiCurrentConversationTitle();
+            }
+
+            console.log('获取当前对话标题:', currentTitle);
+            sendResponse({ title: currentTitle });
+        } catch (error) {
+            console.error('获取当前对话标题失败:', error);
+            sendResponse({ title: null });
+        }
+        return true;
+    }
 });
 
 // 在页面加载完成后应用设置

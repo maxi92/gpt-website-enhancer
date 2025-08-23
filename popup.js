@@ -341,27 +341,41 @@ document.addEventListener('DOMContentLoaded', function() {
                 const currentUrl = tabs[0]?.url || '';
                 const siteName = getSiteName(currentUrl);
                 const currentTime = getCurrentTime();
-                const docName = `${siteName}${currentTime}`;
 
-                // 禁用按钮，显示发送中状态
-                const button = sendToSiyuanButton;
-                const originalText = button.textContent;
-                button.disabled = true;
-                button.textContent = '发送中...';
-
-                // 直接调用思源笔记创建函数
-                createSiyuanDocument(docName, markdownContent, (error, result) => {
-                    // 恢复按钮状态
-                    button.disabled = false;
-                    button.textContent = originalText;
-
-                    if (error) {
-                        // 显示错误信息
-                        showNotification(error, 'error');
+                // 首先尝试获取当前对话标题
+                chrome.tabs.sendMessage(tabs[0].id, { action: 'getCurrentConversationTitle' }, function(titleResponse) {
+                    let docName;
+                    
+                    // 如果获取到对话标题，使用对话标题作为文档名
+                    if (titleResponse && titleResponse.title) {
+                        docName = titleResponse.title;
+                        console.log('使用对话标题作为文档名:', docName);
                     } else {
-                        // 显示成功信息
-                        showNotification(`✅ 已发送到思源笔记！\n📄 文档名: ${docName}\n📂 路径: ${result.path}`, 'success');
+                        // 如果获取不到对话标题，使用原来的格式
+                        docName = `${siteName}${currentTime}`;
+                        console.log('使用默认格式作为文档名:', docName);
                     }
+
+                    // 禁用按钮，显示发送中状态
+                    const button = sendToSiyuanButton;
+                    const originalText = button.textContent;
+                    button.disabled = true;
+                    button.textContent = '发送中...';
+
+                    // 直接调用思源笔记创建函数
+                    createSiyuanDocument(docName, markdownContent, (error, result) => {
+                        // 恢复按钮状态
+                        button.disabled = false;
+                        button.textContent = originalText;
+
+                        if (error) {
+                            // 显示错误信息
+                            showNotification(error, 'error');
+                        } else {
+                            // 显示成功信息
+                            showNotification(`✅ 已发送到思源笔记！\n📄 文档名: ${docName}\n📂 路径: ${result.path}`, 'success');
+                        }
+                    });
                 });
             });
         });
