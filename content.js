@@ -334,7 +334,7 @@ function convertSelectedToMarkdown(groups) {
         const userContent = group.querySelector('.conversation-item.user .conversation-text').textContent;
         const assistantContent = group.querySelector('.conversation-item.assistant .conversation-text').textContent;
 
-        markdown += `## 对话 ${index + 1}\n\n`;
+        markdown += `# 对话 ${index + 1}\n\n`;
         markdown += `**问题**：${userContent}\n\n`;
         markdown += `**回答**：${assistantContent}\n\n`;
         markdown += '---\n\n';
@@ -1276,7 +1276,7 @@ function copySelectedConversations() {
         const group = checkbox.closest('.conversation-group');
         const index = parseInt(group.dataset.index);
 
-        markdown += `## 对话 ${index + 1}\n\n`;
+        markdown += `# 对话 ${index + 1}\n\n`;
 
         // 根据不同网站使用相应的转换逻辑
         if (hostname.includes('chatgpt.com')) {
@@ -1634,7 +1634,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                             title: userContent.length > 50 ? userContent.substring(0, 50) + '...' : userContent
                         });
 
-                        markdown += `## 对话 ${i + 1}\n\n`;
+                        markdown += `# 对话 ${i + 1}\n\n`;
                         markdown += '**Q:** ';
                         markdown += convertElementToMarkdown(userMessage) + '\n\n';
                     }
@@ -1673,7 +1673,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                             title: questionContent.length > 50 ? questionContent.substring(0, 50) + '...' : questionContent
                         });
 
-                        markdown += `## 对话 ${index + 1}\n\n`;
+                        markdown += `# 对话 ${index + 1}\n\n`;
                         markdown += '**Q:** ';
                         markdown += convertElementToMarkdown(questionElement) + '\n\n';
                         markdown += '**A:** ';
@@ -1699,7 +1699,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                             title: questionContent.length > 50 ? questionContent.substring(0, 50) + '...' : questionContent
                         });
 
-                        markdown += `## 对话 ${index + 1}\n\n`;
+                        markdown += `# 对话 ${index + 1}\n\n`;
                         markdown += '**Q:** ';
                         markdown += convertElementToMarkdown(userQuery) + '\n\n';
                         markdown += '**A:** ';
@@ -1716,7 +1716,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
             // 如果需要生成目录，在最前面添加目录
             if (request.generateToc) {
-                let toc = '## 目录\n\n';
+                let toc = '# 目录\n\n';
                 conversations.forEach(conv => {
                     toc += `- [对话 ${conv.index}](#对话-${conv.index}) - ${conv.title}\n`;
                 });
