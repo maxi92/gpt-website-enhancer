@@ -1617,6 +1617,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 const userMessages = document.querySelectorAll('[data-message-author-role="user"]');
                 const aiMessages = document.querySelectorAll('[data-message-author-role="assistant"]');
                 
+                // 获取当前对话标题
+                currentTitle = getChatGPTCurrentConversationTitle();
+                
                 // 确保消息成对出现
                 const pairCount = Math.min(userMessages.length, aiMessages.length);
                 
@@ -1706,8 +1709,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 });
             }
 
-            // 如果是Gemini或通义千问页面且有对话标题，在最前面添加标题
-            if ((hostname.includes('gemini.google.com') || hostname.includes('www.tongyi.com')) && currentTitle) {
+            // 如果是Gemini、通义千问或ChatGPT页面且有对话标题，在最前面添加标题
+            if ((hostname.includes('gemini.google.com') || hostname.includes('www.tongyi.com') || hostname.includes('chatgpt.com')) && currentTitle) {
                 markdown = `# ${currentTitle}\n\n${markdown}`;
             }
 
@@ -1979,6 +1982,28 @@ function getTongyiCurrentConversationTitle() {
     } else {
         console.log("未找到当前选中的通义千问对话。");
         console.log("选择器测试:", document.querySelector('div[class*="sessionItem"][class*="activeItem"] div[class*="truncate"]'));
+        return null;
+    }
+}
+
+// 获取ChatGPT当前对话标题
+function getChatGPTCurrentConversationTitle() {
+    // 使用CSS选择器定位当前选中的对话链接
+    const selectedConversationLink = document.querySelector('a[data-active]');
+    
+    if (selectedConversationLink) {
+        // 从选中链接中提取标题文本
+        const titleElement = selectedConversationLink.querySelector('.truncate span');
+        if (titleElement) {
+            const title = titleElement.textContent.trim();
+            console.log("找到当前ChatGPT对话标题:", title);
+            return title;
+        } else {
+            console.log("未找到ChatGPT对话标题元素。");
+            return null;
+        }
+    } else {
+        console.log("未找到当前选中的ChatGPT对话。");
         return null;
     }
 }
